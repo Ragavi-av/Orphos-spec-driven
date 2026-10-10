@@ -1,0 +1,110 @@
+server:
+  port: 8094
+  # Allow large logo / background uploads.
+  tomcat:
+    max-http-form-post-size: 8MB
+
+spring:
+  application:
+    name: admin-console-service
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 16MB
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs}
+
+# ArcadeDB HTTP API
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user: ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# OpenBao (Vault-compatible) secret backend — for this service's own
+# SecretRefService (SMTP password storage).
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # Needed by AdminQueryHistoryController to resolve Keycloak user display
+    # names for the AI-usage history view.
+    - KEYCLOAK_ADMIN_PASSWORD=eip/keycloak-admin#password
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+
+admin:
+  secrets:
+    namespace: admin
+  branding:
+    max-logo-bytes: 1048576       # 1 MiB
+    max-background-bytes: 4194304 # 4 MiB
+    # Comma-separated, NOT a YAML list — see AssetValidator for why.
+    allowed-mime: image/png,image/jpeg,image/svg+xml,image/webp
+  email:
+    # Comma-separated, NOT a YAML list. Blank = no restriction.
+    test-recipient-domain-allowlist: ""
+  events:
+    # Event-communication framework. Recipients are resolved by
+    # platform-core-service's internal user directory; both settings default
+    # to the tenant-discovery values above so no extra secret is needed.
+    directory-url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+    internal-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_INTERNAL_SERVICE_TOKEN:}}
+    health:
+      # Comma-separated name=healthUrl pairs. Blank disables the monitor.
+      # SERVICE_DOWN / SERVICE_RECOVERED events are emitted on transitions.
+      targets: ${EIP_EVENTS_HEALTH_TARGETS:}
+      interval: ${EIP_EVENTS_HEALTH_INTERVAL:PT60S}
+      initial-delay: PT120S
+      # Re-alert cadence while a service stays down.
+      remind-after: PT6H
+
+eip:
+  security:
+    # Trusted-issuer set fetched live from platform-core-service.
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_INTERNAL_SERVICE_TOKEN:}}
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    platform-issuer: ${KEYCLOAK_PLATFORM_ISSUER:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+  cors:
+    allowed-origins:
+      - http://localhost:3001
+      - http://localhost:5173   # Vite dev server
+  rate-limit:
+    enabled: true
+    rules:
+      - path-prefix: /api/admin/**
+        capacity: 300
+        refill-period: PT1M
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    # Application code: INFO and above, so both INFO and ERROR events from
+    # io.orphos.eip.admin.** reach the Console + RollingFile appenders.
+    io.orphos.eip.admin: INFO
+    # Spring libraries: errors only — framework failures still surface in the
+    # JSON stream, without the framework's own INFO/DEBUG chatter.
+    org.springframework: ERROR
+    org.springframework.security: INFO

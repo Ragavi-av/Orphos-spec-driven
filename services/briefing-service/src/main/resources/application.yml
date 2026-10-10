@@ -1,0 +1,96 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: briefing-service
+  threads:
+    virtual:
+      enabled: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+ollama:
+  base-url: ${OLLAMA_URL:http://eip-ollama:11434}
+
+arcadedb:
+  url:      ${ARCADEDB_URL:http://localhost:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against admin-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # Same secret under the name the LLM client reads, matching how
+    # doc-ingest-service and mail-insight-service bind it for nl-query calls.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+briefing:
+  cron: "0 0 7 * * *"
+
+  # Daily-digest prose for the dashboard greeting banner. Best-effort: when the
+  # model is disabled or unreachable the banner falls back to translated line
+  # items built from the same rows (see DailyDigestService.fallback).
+  llm:
+    enabled: ${BRIEFING_LLM_ENABLED:true}
+    nl-query-url: ${NL_QUERY_URL:http://eip-nl-query:8082}
+    # Either binding resolves to the same eip/internal-service#token secret;
+    # the tenant-discovery name is listed second as the cold-start fallback.
+    internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:}}
+    timeout-seconds: ${BRIEFING_LLM_TIMEOUT:60}
+
+  digest:
+    # One model call per tenant per language per window — without this every
+    # dashboard load and header refresh would spend a completion.
+    cache-ttl-seconds: ${BRIEFING_DIGEST_CACHE_TTL:900}
+
+ceo:
+  email: ${CEO_EMAIL:ceo@localhost}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# admin-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

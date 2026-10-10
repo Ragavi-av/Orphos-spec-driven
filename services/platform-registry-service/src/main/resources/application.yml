@@ -1,0 +1,72 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: platform-registry-service
+
+# ArcadeDB — shared orphos database. Holds the PluginManifest + TenantFeature
+# document types (formerly the H2 plugin_manifest / tenant_feature tables).
+# The document types, indexes, and the well-known plugin seed rows are created
+# idempotently on startup by RegistrySchemaBootstrap.
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# OpenBao (Vault-compatible) secret backend — supplies the ArcadeDB root
+# password (eip/arcadedb#password) both at bootstrap and, as a runtime
+# fallback, via RegistryArcadeClient.
+secrets:
+  host:               ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment:        ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # Shared internal-service token — lets agents/MCP servers self-register with a
+    # valid X-Internal-Token (granted ROLE_service_internal by eip-core-security's
+    # InternalServiceTokenAuthenticationFilter) instead of a user JWT.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# platform-core-service so a new tenant's realm is accepted without restart.
+# EIP_INTERNAL_SERVICE_TOKEN (from .env / docker-compose) is used as the
+# outbound shared secret when polling /api/internal/tenant-issuers.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_INTERNAL_SERVICE_TOKEN:}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Explicit mapping: the Infisical backstop injects EIP_SECURITY_INTERNAL_SERVICE_TOKEN
+    # as a plain MapPropertySource, which @Value does not relax-bind to this key.
+    internal-service-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+
+logging:
+  level:
+    io.orphos.eip.registry: INFO
+    org.springframework.security: WARN

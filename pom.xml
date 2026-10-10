@@ -1,0 +1,285 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.orphos.eip</groupId>
+  <artifactId>eip-mvp-parent</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.16</version>
+    <relativePath/>
+  </parent>
+
+  <properties>
+    <java.version>21</java.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <spring-boot.version>3.5.16</spring-boot.version>
+    <arcadedb.version>25.4.1</arcadedb.version>
+    <jena.version>4.10.0</jena.version>
+    <!-- langchain4j GA (Phase 0): versions are governed by langchain4j-bom below. -->
+    <langchain4j.version>1.18.0</langchain4j.version>
+    <!-- Spring AI BOM (Phase 0): brings MCP server/client starters + tool-calling. -->
+    <spring-ai.version>1.1.8</spring-ai.version>
+    <kafka.version>3.7.0</kafka.version>
+    <resilience4j.version>2.3.0</resilience4j.version>
+    <!-- Apache Camel, for data-ingestion-service's Zoho ERP batch pipeline (Camel route +
+         Spring Batch step). 4.20.x is the current Camel 4 line, built for Spring Boot 3 / Java 17+. -->
+    <camel.version>4.20.0</camel.version>
+  </properties>
+
+  <modules>
+    <module>libs/eip-secrets</module>
+    <module>libs/eip-common</module>
+    <module>libs/eip-core-security</module>
+    <module>libs/eip-core-arcadedb</module>
+    <module>libs/eip-core-dbregistry</module>
+    <module>libs/eip-core-ai-client</module>
+    <module>libs/eip-mcp-spec</module>
+    <module>libs/eip-agent-spec</module>
+    <module>libs/eip-agent-runtime</module>
+    <module>services/okg-ingest-service</module>
+    <module>services/okg-reasoning-service</module>
+    <module>services/graph-proxy-service</module>
+    <module>services/nl-query-service</module>
+    <module>services/priority-engine-service</module>
+    <module>services/briefing-service</module>
+    <module>services/agent-orchestrator-service</module>
+    <module>services/decision-log-service</module>
+    <module>services/notification-service</module>
+    <module>services/platform-core-service</module>
+    <module>services/admin-console-service</module>
+    <module>services/widgets-service</module>
+    <module>services/doc-ingest-service</module>
+    <module>services/mail-insight-service</module>
+    <module>services/platform-registry-service</module>
+    <module>services/data-ingestion-service</module>
+    <module>services/mobile-bff-service</module>
+    <module>services/web-bff-service</module>
+    <module>services/voice-service</module>
+    <module>mcp/eip-mcp-priority</module>
+    <module>mcp/eip-mcp-decision</module>
+    <module>mcp/eip-mcp-rag</module>
+    <module>mcp/eip-mcp-mail</module>
+    <module>mcp/eip-mcp-comms</module>
+    <module>mcp/eip-mcp-reasoning</module>
+    <module>mcp/eip-mcp-graph</module>
+    <module>mcp/eip-mcp-ingest</module>
+    <module>agents/eip-agent-briefing</module>
+    <module>agents/eip-agent-decision</module>
+    <module>agents/eip-agent-email-triage</module>
+    <module>agents/eip-agent-comms-triage</module>
+    <module>agents/eip-agent-attention</module>
+    <module>tools/setup-wizard</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- langchain4j GA BOM — governs langchain4j-ollama / langchain4j-qdrant
+           (and any future langchain4j module) at ${langchain4j.version}. -->
+      <dependency>
+        <groupId>dev.langchain4j</groupId>
+        <artifactId>langchain4j-bom</artifactId>
+        <version>${langchain4j.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Spring AI BOM — MCP server/client starters + tool-calling for the
+           agent/MCP layer (Phases 2+). Imported now so modules can consume it
+           without per-module version pinning. -->
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Apache Camel Spring Boot BOM — governs camel-spring-boot-starter and every
+           camel-*-starter artifact at ${camel.version}. Only data-ingestion-service
+           consumes it today (Zoho ERP batch pipeline). -->
+      <dependency>
+        <groupId>org.apache.camel.springboot</groupId>
+        <artifactId>camel-spring-boot-bom</artifactId>
+        <version>${camel.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Shared OpenBao bootstrap + runtime client -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-secrets</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Shared web concerns: ApiError, GlobalExceptionHandler, CORS, rate limiting -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Zero-boilerplate default SecurityFilterChain for services with no
+           custom authorization rules -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-core-security</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Shared ArcadeDB REST transport, replacing per-service hand-rolled clients -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-core-arcadedb</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Bootstrap resolver for operator-defined external DB connections -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-core-dbregistry</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Thin client to nl-query-service's internal AI-completion API -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-core-ai-client</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- MCP tool contract: capability.action naming + header propagation (design §5.1) -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mcp-spec</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Agent contract: manifests + invocation/approval envelopes, DTOs only (design §5.2) -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-agent-spec</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Reusable agent engine: planner loop, MCP gateway, approval store (design §5.3) -->
+      <dependency>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-agent-runtime</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Bucket4j (rate limiting). Pulled in transitively via eip-common for
+           services that enable eip.rate-limit; declared here so the version
+           is consistent. -->
+      <dependency>
+        <groupId>com.bucket4j</groupId>
+        <artifactId>bucket4j_jdk17-core</artifactId>
+        <version>8.14.0</version>
+      </dependency>
+      <!-- Resilience4j (circuit breaker / retry / bulkhead around outbound
+           calls). Pulled in transitively via eip-common for every
+           service/lib that depends on it; declared here so the version is
+           consistent. resilience4j-all provides the Decorators composition
+           helper (EipResilienceDecorators); no resilience4j-spring-boot3
+           starter — this repo uses the programmatic API only, deliberately,
+           so it works identically for Spring beans and hand-built objects. -->
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-circuitbreaker</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-retry</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-bulkhead</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-all</artifactId>
+        <version>${resilience4j.version}</version>
+      </dependency>
+      <!-- ArcadeDB Java SDK -->
+      <dependency>
+        <groupId>com.arcadedb</groupId>
+        <artifactId>arcadedb-engine</artifactId>
+        <version>${arcadedb.version}</version>
+      </dependency>
+      <!-- Apache Jena ARQ (SPARQL query engine) -->
+      <dependency>
+        <groupId>org.apache.jena</groupId>
+        <artifactId>jena-arq</artifactId>
+        <version>${jena.version}</version>
+      </dependency>
+      <!-- Apache Jena OWL API -->
+      <dependency>
+        <groupId>org.apache.jena</groupId>
+        <artifactId>jena-core</artifactId>
+        <version>${jena.version}</version>
+      </dependency>
+      <!-- RDFConnection/RDFConnectionRemote (talking to a remote Fuseki endpoint
+           over HTTP) — its own Jena module, NOT bundled in jena-arq. -->
+      <dependency>
+        <groupId>org.apache.jena</groupId>
+        <artifactId>jena-rdfconnection</artifactId>
+        <version>${jena.version}</version>
+      </dependency>
+      <!-- LangChain4j (langchain4j-ollama, langchain4j-qdrant) versions are
+           managed by the langchain4j-bom import above — no explicit entries. -->
+      <!-- OAuth2 Resource Server (JWT validation against Keycloak) -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        <version>${spring-boot.version}</version>
+      </dependency>
+      <!-- Caffeine cache -->
+      <dependency>
+        <groupId>com.github.ben-manes.caffeine</groupId>
+        <artifactId>caffeine</artifactId>
+        <version>3.1.8</version>
+      </dependency>
+      <!-- OpenAPI / Swagger UI — service-local opt-in via dependency -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>2.8.17</version>
+      </dependency>
+      <!-- Testcontainers — integration tests boot real ArcadeDB / Keycloak
+           in disposable docker containers instead of mocking. -->
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>1.20.4</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>21</release>
+          <compilerArgs>
+            <arg>--add-opens</arg>
+            <arg>java.base/java.lang=ALL-UNNAMED</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

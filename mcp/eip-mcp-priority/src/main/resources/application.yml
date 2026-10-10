@@ -1,0 +1,58 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: eip-mcp-priority
+  ai:
+    mcp:
+      server:
+        name: eip-mcp-priority
+        version: 1.0.0
+        # Streamable HTTP transport is provided by the spring-ai-starter-mcp-server-webmvc starter.
+
+# Priority MCP server settings (see PriorityMcpProperties). Overridden per environment.
+eip:
+  mcp:
+    priority:
+      server-id: eip-mcp-priority
+      mcp-endpoint: http://eip-mcp-priority:8080/mcp
+      health-url: http://eip-mcp-priority:8080/actuator/health
+      registry-base-url: ${EIP_REGISTRY_URL:http://eip-platform-registry:8093}
+      priority-engine-base-url: ${EIP_PRIORITY_ENGINE_URL:http://eip-priority-engine:8083}
+      register-on-startup: true
+      # Internal-service token: resolved from Infisical (eip/internal-service#token) into
+      # EIP_SECURITY_INTERNAL_SERVICE_TOKEN by the secrets binding below.
+      internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+
+# Infisical-backed secrets (shared internal-service token). Mirrors the other services.
+secrets:
+  host:               ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment:        ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    # Application code: INFO and above, so both INFO and ERROR events from
+    # io.orphos.eip.mcp.priority.** reach the Console + RollingFile appenders.
+    io.orphos.eip.mcp.priority: INFO
+    # Shared platform libraries this server runs on (tenant resolution, outbound
+    # HTTP, resilience) — same level, so their WARNs land in the JSON stream too.
+    io.orphos.eip.common: INFO
+    io.orphos.eip.mcp.spec: INFO
+    # Spring libraries: errors only — framework failures still surface in the
+    # JSON stream, without the framework's own INFO/DEBUG chatter.
+    org.springframework: ERROR
+    org.springframework.security: INFO

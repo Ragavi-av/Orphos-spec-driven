@@ -1,0 +1,68 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: graph-proxy-service
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+fuseki:
+  url:      ${FUSEKI_URL:http://localhost:3030}
+  endpoint: ${FUSEKI_ENDPOINT:http://localhost:3030/orphos}
+  user:     ${FUSEKI_USER:admin}
+  password: ${FUSEKI_ADMIN_PASSWORD:}
+
+arcadedb:
+  url: ${ARCADEDB_URL:http://localhost:2480}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - FUSEKI_ADMIN_PASSWORD=eip/fuseki-admin#password
+    # OUTBOUND side of /api/internal/ shared secret — attached to every
+    # TenantInfoCache poll against admin-service.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # INBOUND side — lets this service's InternalServiceTokenAuthenticationFilter accept
+    # internal callers (e.g. eip-mcp-graph) on /api/sparql (same shared secret).
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# admin-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

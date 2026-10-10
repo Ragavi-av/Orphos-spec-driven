@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orphos Setup</title>
+<!-- Inter, as the Orphos design canvas specifies. The wizard may run before the
+     machine has internet (it is the first thing a client opens), so this is
+     purely additive: if the request fails, the --sans stack falls through to
+     system-ui and the layout is unaffected. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+  /* Orphos design tokens, read from frontend/packages/eip-shell-context/orphosTheme.js
+     so the installer looks like the product it installs. Orphos is a dark navy
+     product with blue carrying every interactive affordance; amber is warning
+     only, never an accent. Values are the canvas literals, not approximations. */
+  :root{
+    --paper:#0B1533;        /* canvas       - page ground        */
+    --surface:#152652;      /* surface      - card + panel fill  */
+    --surface2:#0F2450;     /* surfaceDeep  - nested / pre       */
+    --inset:#0D1C44;        /* surfaceInset - recessed well      */
+    --band:#1D3672;         /* band         - raised callout     */
+    --header:#0C193C;       /* header       - sticky band        */
+    --ink:#EAF0FF;          /* textPrimary                       */
+    --muted:#C3D3F2;        /* textMuted    - secondary body     */
+    --bright:#A8BBE6;       /* textBright   - captions           */
+    --grey:#7D92C4;         /* textGrey     - labels, metadata   */
+    --line:#243A72;         /* line         - hairline           */
+    --line2:#2E4A8C;        /* lineStrong   - input outline      */
+    --accent:#2F6FF0;       /* primary blue - filled controls    */
+    --accent-alt:#5B9DFF;   /* primaryAlt                        */
+    --accent-lite:#8DBCFF;  /* accent       - links, focus ring  */
+    --accent-soft:#2F6FF024;
+    --onetime:#FFB84D;      /* warning  - the one-time chip      */
+    --onetime-soft:#FFB84D1f;
+    --pass:#3DDC97;         /* success                           */
+    --pass-soft:#3DDC971f;
+    --fail:#FF6B81;         /* critical                          */
+    --fail-soft:#FF6B811f;
+    --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
+    /* The canvas sets Inter on the artboard root; CJK faces sit behind it so a
+       Japanese tenant still renders Latin in Inter (fallback is per-glyph). */
+    --sans:"Inter","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5}
+  .app{max-width:960px;margin:0 auto;padding:28px 22px 80px}
+  header{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  header h1{font-size:22px;font-weight:700;letter-spacing:-.5px;margin:0}
+  header .env{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto}
+  .sub{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+  /* stepper */
+  .stepper{display:flex;gap:6px;overflow-x:auto;padding-bottom:14px;margin-bottom:18px}
+  .stp{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);
+    background:var(--surface);white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .stp .n{font-family:var(--mono);width:20px;height:20px;border-radius:50%;background:var(--surface2);
+    display:flex;align-items:center;justify-content:center;font-size:11px}
+  .stp.active{border-color:var(--accent);color:var(--accent-lite);background:var(--accent-soft)}
+  .stp.done .n{background:var(--pass);color:var(--paper)}
+  /* card */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px}
+  .card h2{font-size:19px;margin:0 0 4px;font-weight:700;letter-spacing:-.4px}
+  .card .desc{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:3px 8px;border-radius:6px;font-weight:700;border:1px solid;vertical-align:middle;margin-left:8px}
+  .chip.onetime{background:var(--onetime-soft);color:var(--onetime);border-color:var(--onetime)}
+  .chip.runtime{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+  .chip.pass{background:var(--pass-soft);color:var(--pass);border-color:var(--pass)}
+  .chip.fail{background:var(--fail-soft);color:var(--fail);border-color:var(--fail)}
+  .field{margin-bottom:16px}
+  label{display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;color:var(--bright)}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent-lite);outline-offset:2px}
+  label .hint{font-weight:400;color:var(--muted)}
+  input[type=text],input[type=password],select{width:100%;border:1px solid var(--line2);background:var(--inset);
+    color:var(--ink);border-radius:8px;padding:9px 12px;font-size:13.5px;font-family:var(--sans)}
+  input.mono{font-family:var(--mono);font-size:12.5px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid var(--line);
+    border-radius:8px;margin-bottom:8px;background:var(--inset)}
+  .row h5{margin:0 0 2px;font-size:13.5px;font-weight:700}
+  .row p{margin:0;font-size:12px;color:var(--muted)}
+  .sw{width:40px;height:23px;border-radius:100px;background:var(--line2);position:relative;flex:none;cursor:pointer;border:none}
+  .sw.on{background:var(--accent)}
+  .sw::after{content:"";position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .15s}
+  .sw.on::after{left:20px}
+  .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .fc{border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--inset);cursor:pointer}
+  .fc.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .fc .fh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .fc h5{margin:0;font-size:13px;font-weight:700}
+  .fc p{margin:5px 0 0;font-size:11.5px;color:var(--muted)}
+  .fc .ai{font-family:var(--mono);font-size:9.5px;color:var(--grey);margin-top:7px;text-transform:uppercase}
+  .box{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--line2);flex:none}
+  .fc.sel .box{background:var(--accent);border-color:var(--accent);position:relative}
+  .fc.sel .box::after{content:"✓";color:#fff;font-size:11px;position:absolute;top:-3px;left:2px;font-weight:700}
+  .btnrow{display:flex;justify-content:space-between;gap:12px;margin-top:22px}
+  button.btn{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:10px 18px;
+    font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+  button.btn.ghost{background:transparent;color:var(--accent-lite);border-color:var(--line2)}
+  button.btn.mini{padding:5px 10px;font-size:11.5px}
+  button.btn:disabled{opacity:.5;cursor:not-allowed}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .banner{border-radius:8px;padding:10px 14px;font-size:12.5px;margin-top:10px;display:none}
+  .banner.pass{background:var(--pass-soft);color:var(--pass);display:block}
+  .banner.fail{background:var(--fail-soft);color:var(--fail);display:block}
+  pre{background:var(--surface2);border-radius:8px;padding:14px;overflow-x:auto;font-family:var(--mono);
+    font-size:12px;line-height:1.5;margin:0}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-family:var(--mono);font-size:12px;text-align:right}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Orphos Setup</h1>
+    <span class="env" id="targetDir">writing to …</span>
+  </header>
+  <p class="sub">Six steps from a clean machine to a validated <span style="font-family:var(--mono)">.env</span> + <span style="font-family:var(--mono)">orphos.config.json</span>. One-time infrastructure decisions are locked; runtime choices stay editable in the Admin Console.</p>
+
+  <nav class="stepper" id="stepper"></nav>
+  <div id="panel"></div>
+</div>
+
+<script>
+const S = {
+  instanceName:"", instanceSlug:"", primaryDomain:"", demoMode:true,
+  bundledArcade:true, bundledPostgres:true, infisicalPgMode:"bundled",
+  arcade:{url:"",user:"root",password:""}, arcadeValidated:false,
+  postgres:{kcJdbcUrl:"",kcUser:"postgres",kcPassword:"",infisicalUri:""}, pgValidated:false,
+  secrets:null,
+  functionalities:["admin","aicopilot"],
+  ai:{localModelMode:"SINGLE", singleModel:"", extraModels:[], providers:[]},
+  firstTenant:{displayName:"", domain:"", adminEmail:"", adminPassword:"", loadDemoData:false}
+};
+const STEPS = ["Identity","Databases","Secrets","Functionality","AI models","First tenant"];
+let step = 0;
+let CATALOG = [];
+let AI_LOCAL_MODELS = [];
+let AI_PROVIDERS = [];
+
+const $ = (s,el=document)=>el.querySelector(s);
+const h = (html)=>{const t=document.createElement("template");t.innerHTML=html.trim();return t.content.firstChild;};
+const slug = (s)=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+
+// When served (http/https) use the page origin; when opened as a file:// preview
+// fall back to the wizard's default port so the API is still reachable.
+const API_BASE=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://localhost:8099';
+async function api(path,opts){const r=await fetch(API_BASE+path,opts);if(!r.ok)throw new Error(await r.text());
+  const ct=r.headers.get("content-type")||"";return ct.includes("json")?r.json():r.text();}
+
+async function boot(){
+  try{ $("#targetDir").textContent = "writing to "+ await api("/api/target-dir"); }catch(e){}
+  try{ CATALOG = await api("/api/functionalities"); }catch(e){ CATALOG=[]; }
+  try{ AI_LOCAL_MODELS = await api("/api/ai/local-models"); }catch(e){ AI_LOCAL_MODELS=[]; }
+  try{ AI_PROVIDERS = await api("/api/ai/providers"); }catch(e){ AI_PROVIDERS=[]; }
+  if(!S.secrets){ try{
+    const ex = await api("/api/existing-install");
+    S.secrets = ex.secrets; S.existing = ex.priorInstall; S.envPath = ex.envPath;
+    S.prior = ex.priorInstall ? {kc: ex.secrets.keycloakAdminPassword, arcade: ex.secrets.arcadedbPassword, pg: ex.secrets.postgresPassword, infpg: ex.secrets.infisicalDbPassword} : null;
+  }catch(e){} }
+  render();
+}
+
+function renderStepper(){
+  const nav=$("#stepper"); nav.innerHTML="";
+  STEPS.forEach((t,i)=>{
+    const cls = i===step?"active":(i<step?"done":"");
+    const el=h(`<button class="stp ${cls}"><span class="n">${i<step?"✓":i+1}</span>${t}</button>`);
+    el.onclick=()=>{ if(i<=step){ step=i; render(); } };
+    nav.appendChild(el);
+  });
+}
+
+function render(){
+  renderStepper();
+  const p=$("#panel"); p.innerHTML="";
+  p.appendChild([panelIdentity,panelDb,panelSecrets,panelFeatures,panelAi,panelTenant][step]());
+}
+
+function nav(canNext, nextLabel, onNext){
+  const row=h(`<div class="btnrow"></div>`);
+  const back=h(`<button class="btn ghost">Back</button>`);
+  back.disabled = step===0; back.onclick=()=>{step--;render();};
+  const next=h(`<button class="btn">${nextLabel||"Continue"}</button>`);
+  next.disabled=!canNext; next.onclick=onNext||(()=>{step++;render();});
+  row.append(back,next); return row;
+}
+
+function panelIdentity(){
+  const c=h(`<div class="card">
+    <h2>Name this instance <span class="chip onetime">one-time</span></h2>
+    <p class="desc">Seeds the first tenant, its Keycloak realm, and the Infisical project.</p>
+    <div class="field"><label>Instance name</label><input type="text" id="in" value="${S.instanceName}"></div>
+    <div class="two">
+      <div class="field"><label>Slug <span class="hint">— derived</span></label><input type="text" class="mono" id="isl" value="${S.instanceSlug}"></div>
+      <div class="field"><label>Primary domain <span class="hint">— optional</span></label><input type="text" class="mono" id="idm" placeholder="" value="${S.primaryDomain}"></div>
+    </div>
+    <label>Deployment profile</label>
+    <div class="row"><div><h5>Lightweight (demo)</h5><p>Skips Kafka, tracing, metrics dashboards.</p></div><button class="sw ${S.demoMode?'on':''}" id="dm"></button></div>
+  </div>`);
+  const inName=$("#in",c), inSlug=$("#isl",c), inDom=$("#idm",c);
+  inName.oninput=()=>{S.instanceName=inName.value; if(!S._slugEdited){S.instanceSlug=slug(inName.value); inSlug.value=S.instanceSlug;}};
+  inSlug.oninput=()=>{S._slugEdited=true; S.instanceSlug=inSlug.value;};
+  inDom.oninput=()=>{S.primaryDomain=inDom.value;};
+  $("#dm",c).onclick=(e)=>{S.demoMode=!S.demoMode; e.target.classList.toggle("on",S.demoMode);};
+  c.appendChild(nav(true,"Continue",()=>{
+    if(!S.instanceName.trim()){alert("Instance name is required");return;}
+    S.instanceSlug=S.instanceSlug||slug(S.instanceName);
+    S.firstTenant.displayName=S.firstTenant.displayName||S.instanceName;
+    S.firstTenant.domain=S.firstTenant.domain||S.primaryDomain;
+    step++;render();
+  }));
+  return c;
+}
+
+function panelDb(){
+  const c=h(`<div class="card">
+    <h2>Databases <span class="chip onetime">one-time</span></h2>
+    <p class="desc">ArcadeDB and Postgres are independent — bundle any, or point each at your own host. External connections are validated live.</p>
+
+    <div class="row"><div class="info"><h5>Bundled ArcadeDB</h5><p>In-container graph datastore. Off → external ArcadeDB.</p></div><button class="sw ${S.bundledArcade?'on':''}" id="bdArc"></button></div>
+    <div id="extArc" class="${S.bundledArcade?'hidden':''}">
+      <div class="field"><label>ArcadeDB URL <span class="hint">— type your host</span></label><input type="text" class="mono" id="au" placeholder="e.g. http://arcadedb-host:2480" value="${S.arcade.url}"></div>
+      <div class="two">
+        <div class="field"><label>User</label><input type="text" class="mono" id="ausr" value="${S.arcade.user}"></div>
+        <div class="field"><label>Password</label><input type="password" class="mono" id="apw" value="${S.arcade.password}"></div>
+      </div>
+      <button class="btn mini" id="val">Validate ArcadeDB</button>
+      <div class="banner" id="vb"></div>
+    </div>
+
+    <div class="row" style="margin-top:14px"><div class="info"><h5>Bundled Postgres — Keycloak</h5><p>In-container Keycloak DB. Off → external Postgres.</p></div><button class="sw ${S.bundledPostgres?'on':''}" id="bdPg"></button></div>
+    <div id="extPg" class="${S.bundledPostgres?'hidden':''}">
+      <div class="field"><label>Keycloak DB — JDBC URL</label><input type="text" class="mono" id="kcurl" placeholder="jdbc:postgresql://pg-host:5432/keycloak" value="${S.postgres.kcJdbcUrl}"></div>
+      <div class="two">
+        <div class="field"><label>User</label><input type="text" class="mono" id="kcuser" value="${S.postgres.kcUser}"></div>
+        <div class="field"><label>Password</label><input type="password" class="mono" id="kcpw" value="${S.postgres.kcPassword}"></div>
+      </div>
+      <button class="btn mini" id="valpg">Validate Postgres</button>
+      <div class="banner" id="vbpg"></div>
+    </div>
+
+    <div class="field" style="margin-top:14px"><label>Infisical Postgres</label>
+      <select id="infMode">
+        <option value="bundled">Own bundled container (eip-infisical-db)</option>
+        <option value="share">Share Keycloak's Postgres (same server, separate infisical DB)</option>
+        <option value="external">External Postgres</option>
+      </select>
+    </div>
+    <div id="extInf" class="hidden">
+      <div class="field"><label>Infisical DB — URI</label><input type="text" class="mono" id="infuri" placeholder="postgres://user:pass@pg-host:5432/infisical" value="${S.postgres.infisicalUri}"></div>
+    </div>
+
+    <div style="height:1px;background:var(--line);margin:18px 0"></div>
+    <h5 style="margin:0 0 3px;font-size:13.5px;font-weight:700">Create a database <span class="hint" style="font-weight:400">— optional</span></h5>
+    <p class="note" style="margin:0 0 12px">platform-core auto-creates its database (<span class="mono">orphos</span>) on first boot, and every container shares that one database. Use this to pre-create it on an external server, or to add an extra empty database by name.</p>
+    <div class="two">
+      <div class="field"><label>Database name</label><input type="text" class="mono" id="dbname" value="orphos"></div>
+      <div class="field"><label>Structure</label>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400;font-size:12.5px;padding-top:8px"><input type="checkbox" id="dbschema"> Include default (orphos) knowledge-graph structure</label>
+      </div>
+    </div>
+    <button class="btn mini" id="createdb">Create database</button>
+    <div class="banner" id="vbdb"></div>
+  </div>`);
+  const extArc=$("#extArc",c), extPg=$("#extPg",c), extInf=$("#extInf",c);
+  $("#bdArc",c).onclick=e=>{S.bundledArcade=!S.bundledArcade; e.target.classList.toggle("on",S.bundledArcade); extArc.classList.toggle("hidden",S.bundledArcade);};
+  $("#bdPg",c).onclick=e=>{S.bundledPostgres=!S.bundledPostgres; e.target.classList.toggle("on",S.bundledPostgres); extPg.classList.toggle("hidden",S.bundledPostgres);};
+  const infMode=$("#infMode",c); infMode.value=S.infisicalPgMode||'bundled';
+  const syncInf=()=>{ extInf.classList.toggle("hidden", S.infisicalPgMode!=='external'); };
+  infMode.onchange=()=>{ S.infisicalPgMode=infMode.value; if(S.infisicalPgMode!=='external') S.postgres.infisicalUri=""; syncInf(); };
+  syncInf();
+  $("#au",c).oninput=e=>{S.arcade.url=e.target.value;S.arcadeValidated=false;};
+  $("#ausr",c).oninput=e=>{S.arcade.user=e.target.value;S.arcadeValidated=false;};
+  $("#apw",c).oninput=e=>{S.arcade.password=e.target.value;S.arcadeValidated=false;};
+  $("#val",c).onclick=async()=>{
+    const b=$("#vb",c); b.className="banner"; b.textContent="Validating…"; b.style.display="block";
+    try{
+      const r=await api("/api/validate/arcade",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(S.arcade)});
+      b.className="banner "+(r.ok?"pass":"fail"); b.textContent=(r.ok?"✓ ":"✗ ")+r.message+" ("+r.elapsedMs+" ms)";
+      S.arcadeValidated=r.ok;
+    }catch(e){ b.className="banner fail"; b.textContent="✗ "+e.message; }
+  };
+  $("#kcurl",c).oninput=e=>{S.postgres.kcJdbcUrl=e.target.value;S.pgValidated=false;};
+  $("#kcuser",c).oninput=e=>{S.postgres.kcUser=e.target.value;S.pgValidated=false;};
+  $("#kcpw",c).oninput=e=>{S.postgres.kcPassword=e.target.value;S.pgValidated=false;};
+  $("#infuri",c).oninput=e=>{S.postgres.infisicalUri=e.target.value;};
+  $("#valpg",c).onclick=async()=>{
+    const b=$("#vbpg",c); b.className="banner"; b.textContent="Validating…"; b.style.display="block";
+    if(!S.postgres.kcJdbcUrl.trim()){ b.className="banner fail"; b.textContent="✗ Enter the Keycloak DB JDBC URL to validate."; return; }
+    try{
+      const r=await api("/api/validate/postgres",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({url:S.postgres.kcJdbcUrl,user:S.postgres.kcUser,password:S.postgres.kcPassword})});
+      b.className="banner "+(r.ok?"pass":"fail"); b.textContent=(r.ok?"✓ ":"✗ ")+r.message+" ("+r.elapsedMs+" ms)";
+      S.pgValidated=r.ok;
+    }catch(e){ b.className="banner fail"; b.textContent="✗ "+e.message; }
+  };
+  $("#createdb",c).onclick=async()=>{
+    const b=$("#vbdb",c); const name=$("#dbname",c).value.trim(); const withSchema=$("#dbschema",c).checked;
+    b.style.display="block";
+    if(!name){ b.className="banner fail"; b.textContent="✗ Enter a database name."; return; }
+    const target = S.bundledArcade
+      ? {url:"http://localhost:2480",user:"root",password:(S.secrets&&S.secrets.arcadedbPassword)||""}
+      : {url:S.arcade.url,user:S.arcade.user,password:S.arcade.password};
+    b.className="banner"; b.textContent="Creating…";
+    try{
+      const r=await api("/api/db/arcade/create",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({url:target.url,user:target.user,password:target.password,database:name,withSchema:withSchema})});
+      b.className="banner "+(r.ok?"pass":"fail"); b.textContent=(r.ok?"✓ ":"✗ ")+r.message;
+    }catch(e){ b.className="banner fail"; b.textContent="✗ "+e.message; }
+  };
+  c.appendChild(nav(true,"Continue",()=>{
+    if(!S.bundledArcade && !S.arcadeValidated){ if(!confirm("External ArcadeDB isn't validated yet. Continue anyway?"))return; }
+    step++;render();
+  }));
+  return c;
+}
+
+function panelSecrets(){
+  const s=S.secrets||{};
+  const fields=[["keycloakAdminPassword","Keycloak admin password"],["arcadedbPassword","ArcadeDB password"],
+    ["postgresPassword","Postgres password (Keycloak DB)"],
+    ["infisicalDbPassword","Postgres password (Infisical DB)"],
+    ["fusekiAdminPassword","Fuseki admin password"],["internalServiceToken","Internal service token"]];
+  const lockedKeys={keycloakAdminPassword:"kc",arcadedbPassword:"arcade",postgresPassword:"pg",infisicalDbPassword:"infpg"};   // must match volumes
+  const reuse = S.existing
+    ? `<div class="banner pass" style="display:block">Reusing the secrets from your existing install (<span class="mono">${S.envPath||'.env'}</span>). These match your already-initialized Keycloak / Postgres / ArcadeDB volumes — changing a highlighted field breaks auth unless you reset those volumes (<span class="mono">docker compose down -v</span>).</div>`
+    : "";
+  const c=h(`<div class="card">
+    <h2>Secrets <span class="chip onetime">one-time · locked after install</span></h2>
+    <p class="desc">${S.existing?'Reused from your existing install — edit only if you are also resetting the volumes.':'Generated strong by default. Regenerate any, or paste your own. Blank fields are auto-filled at install.'}</p>
+    ${reuse}
+    <div class="two" id="sf"></div>
+    <button class="btn mini ghost" id="regen" style="margin-top:6px">Regenerate all</button>
+  </div>`);
+  const sf=$("#sf",c);
+  fields.forEach(([k,lbl])=>{
+    const f=h(`<div class="field"><label>${lbl}</label><input type="text" class="mono" value="${s[k]||''}"><div class="drift" style="display:none;color:var(--fail);font-size:11.5px;margin-top:5px"></div></div>`);
+    const inp=$("input",f); const drift=$(".drift",f);
+    inp.oninput=()=>{ S.secrets[k]=inp.value;
+      if(S.existing && lockedKeys[k]){
+        const prior=S.prior?S.prior[lockedKeys[k]]:null;
+        const changed = prior!=null && inp.value!==prior;
+        drift.style.display = changed?"block":"none";
+        if(changed) drift.textContent="⚠ Changed from the value your volumes were initialized with — this will cause 401 / crash-loops unless you reset volumes.";
+      }
+    };
+    sf.appendChild(f);
+  });
+  $("#regen",c).onclick=async()=>{
+    if(S.existing && !confirm("You have an existing install. Regenerating will NOT match your initialized Keycloak/Postgres/ArcadeDB volumes and will break auth unless you reset them with `docker compose down -v`. Regenerate anyway?")) return;
+    S.secrets=await api("/api/secrets/generate"); S.existing=false; S.prior=null; render();
+  };
+  c.appendChild(nav(true));
+  return c;
+}
+
+function panelFeatures(){
+  const c=h(`<div class="card">
+    <h2>Choose functionality <span class="chip runtime">changeable</span></h2>
+    <p class="desc">Only the services behind what you pick get built and started. The plan is resolved server-side.</p>
+    <div class="feat" id="ft"></div>
+    <div class="row" id="airow" style="margin-top:14px">
+      <div class="info"><h5>AI Layer <span class="hint" style="font-weight:400">— local Ollama LLMs</span></h5><p id="aidesc"></p></div>
+      <div class="sw" id="aisw" style="pointer-events:none" title="Auto-selected from your functionality choices"></div>
+    </div>
+    <div class="note" id="plan"></div>
+  </div>`);
+  const ft=$("#ft",c);
+  if(!S.functionalities.includes("admin")) S.functionalities.unshift("admin");
+  const aiFeatures=()=>CATALOG.filter(f=>f.needsAi && S.functionalities.includes(f.key)).map(f=>f.key);
+  const updateAiRow=()=>{ const feats=aiFeatures(); const on=feats.length>0;
+    $("#aisw",c).classList.toggle("on",on);
+    $("#aidesc",c).textContent = on ? ("Auto-enabled — required by: "+feats.join(", ")) : "Off — no selected feature needs an LLM."; };
+  const renderCard=(f)=>{
+    const locked = f.key==="admin";               // admin console is always installed
+    const sel=S.functionalities.includes(f.key);
+    const tag = f.needsAi ? '<div class="ai">needs AI layer</div>'
+              : locked ? '<div class="ai" style="color:var(--muted)">always installed</div>' : '';
+    const el=h(`<div class="fc ${sel?'sel':''}" ${locked?'style="cursor:default;opacity:.9"':''}>
+      <div class="fh"><h5>${f.key}</h5><div class="box"></div></div>
+      <p>${f.description}</p>${tag}</div>`);
+    if(!locked){
+      el.onclick=()=>{ const i=S.functionalities.indexOf(f.key);
+        if(i>=0)S.functionalities.splice(i,1); else S.functionalities.push(f.key);
+        el.classList.toggle("sel"); refreshPlan(); updateAiRow(); };
+    }
+    return el;
+  };
+  // Primary application features first; the granular MCP servers / agents (an
+  // advanced, composable set — see startmodules.sh) fold into a collapsed
+  // section so the common install stays simple. Groups come from the catalogue.
+  const appFeats=CATALOG.filter(f=>(f.group||'app')==='app');
+  const advFeats=CATALOG.filter(f=>f.group==='mcp'||f.group==='agent');
+  appFeats.forEach(f=>ft.appendChild(renderCard(f)));
+  if(advFeats.length){
+    const det=h(`<details style="margin-top:14px">
+      <summary style="cursor:pointer;font-weight:600;color:var(--muted)">Advanced — individual MCP servers &amp; agents (${advFeats.length})</summary>
+      <p class="desc" style="margin-top:8px">Optional: start a single MCP tool server or agent (each pulls in only what it needs). Most installs don't need these — the features above already include the services they use.</p>
+      <div class="feat" id="ftadv" style="margin-top:10px"></div>
+    </details>`);
+    ft.parentNode.insertBefore(det, ft.nextSibling);
+    const adv=$("#ftadv",det);
+    advFeats.forEach(f=>adv.appendChild(renderCard(f)));
+  }
+  async function refreshPlan(){
+    try{ const p=await api("/api/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(S.functionalities)});
+      $("#plan",c).innerHTML=`Resolved: <b>${p.containerCount}</b> containers · AI layer <b>${p.needsAi?'on':'off'}</b> · services: <span style="font-family:var(--mono)">${p.services.join(", ")}</span>`;
+    }catch(e){}
+  }
+  refreshPlan();
+  updateAiRow();
+  c.appendChild(nav(true));
+  return c;
+}
+
+function panelAi(){
+  const a=S.ai;
+  const c=h(`<div class="card">
+    <h2>AI models <span class="chip runtime">changeable</span></h2>
+    <p class="desc">Local Ollama models (pulled once at install) and/or one or more external providers. The lists are configured from the wizard's catalogue (env-overridable).</p>
+    <label>Local model mode</label>
+    <div class="row"><div><h5>Single</h5><p>One local model, primary container only</p></div><button class="sw ${a.localModelMode==='SINGLE'?'on':''}" id="ms"></button></div>
+    <div class="row"><div><h5>Multiple</h5><p>Pick several (more disk; a hi-mem container may be needed)</p></div><button class="sw ${a.localModelMode==='MULTIPLE'?'on':''}" id="mm"></button></div>
+    <div id="single" class="field ${a.localModelMode==='MULTIPLE'?'hidden':''}"><label>Model</label><select id="singleModel"></select></div>
+    <div id="multi" class="field ${a.localModelMode==='SINGLE'?'hidden':''}"><label>Models</label><div id="modelChecks"></div></div>
+
+    <div style="height:1px;background:var(--line);margin:18px 0"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between"><label style="margin:0">External providers <span class="hint" style="font-weight:400">— optional, add any</span></label><button class="btn mini ghost" id="addProv">+ Add provider</button></div>
+    <div id="provList"></div>
+  </div>`);
+  const setMode=(m)=>{a.localModelMode=m; $("#ms",c).classList.toggle("on",m==='SINGLE'); $("#mm",c).classList.toggle("on",m==='MULTIPLE');
+    $("#single",c).classList.toggle("hidden",m==='MULTIPLE'); $("#multi",c).classList.toggle("hidden",m==='SINGLE');};
+  $("#ms",c).onclick=()=>setMode('SINGLE'); $("#mm",c).onclick=()=>setMode('MULTIPLE');
+  // single dropdown
+  const sm=$("#singleModel",c);
+  AI_LOCAL_MODELS.forEach(m=>{ const o=document.createElement('option'); o.value=m.value; o.textContent=m.label; sm.appendChild(o); });
+  if(!a.singleModel && AI_LOCAL_MODELS.length) a.singleModel=AI_LOCAL_MODELS[0].value;
+  sm.value=a.singleModel; sm.onchange=()=>{a.singleModel=sm.value;};
+  // multiple checkboxes
+  const mc=$("#modelChecks",c);
+  AI_LOCAL_MODELS.forEach(m=>{
+    const row=h(`<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:4px 0"><input type="checkbox" ${a.extraModels.includes(m.value)?'checked':''}> ${m.label} <span class="mono" style="color:var(--muted);font-size:11px">${m.value}</span></label>`);
+    const cb=$("input",row); cb.onchange=()=>{ if(cb.checked){ if(!a.extraModels.includes(m.value)) a.extraModels.push(m.value); } else { a.extraModels=a.extraModels.filter(x=>x!==m.value); } };
+    mc.appendChild(row);
+  });
+  // external providers
+  const provList=$("#provList",c);
+  const renderProv=()=>{ provList.innerHTML=""; if(!a.providers.length){ provList.appendChild(h('<p class="note" style="margin:8px 0 0">No external providers — local only.</p>')); } a.providers.forEach((p,i)=>provList.appendChild(provRow(p,i,renderProv))); };
+  $("#addProv",c).onclick=()=>{ const first=AI_PROVIDERS[0]||{key:"",defaultModel:""}; a.providers.push({provider:first.key,apiKey:"",model:first.defaultModel}); renderProv(); };
+  renderProv();
+  c.appendChild(nav(true));
+  return c;
+}
+
+function provRow(p,i,rerender){
+  const opts=AI_PROVIDERS.map(pr=>`<option value="${pr.key}" ${pr.key===p.provider?'selected':''}>${pr.label}</option>`).join("");
+  const row=h(`<div style="border:1px solid var(--line);border-radius:9px;padding:12px;margin-top:8px">
+    <div class="two">
+      <div class="field" style="margin:0"><label>Provider</label><select class="pv">${opts}</select></div>
+      <div class="field" style="margin:0"><label>Default model</label><input type="text" class="mono pm" value="${p.model||''}"></div>
+    </div>
+    <div class="field" style="margin:8px 0 0"><label>API key</label><input type="password" class="mono pk" value="${p.apiKey||''}"></div>
+    <button class="btn mini ghost rm" style="margin-top:8px">Remove</button>
+  </div>`);
+  const pv=$(".pv",row), pm=$(".pm",row), pk=$(".pk",row);
+  pv.onchange=()=>{ p.provider=pv.value; const def=AI_PROVIDERS.find(x=>x.key===pv.value); if(def){ p.model=def.defaultModel; pm.value=def.defaultModel; } };
+  pm.oninput=()=>{p.model=pm.value;}; pk.oninput=()=>{p.apiKey=pk.value;};
+  $(".rm",row).onclick=()=>{ S.ai.providers.splice(i,1); rerender(); };
+  return row;
+}
+
+function panelTenant(){
+  const t=S.firstTenant;
+  const c=h(`<div class="card">
+    <h2>First tenant &amp; data <span class="chip runtime">changeable</span></h2>
+    <p class="desc">Your instance name becomes the first tenant. Loading demo data is optional — off makes it a clean production tenant.</p>
+    <div class="two">
+      <div class="field"><label>Tenant display name</label><input type="text" id="tn" value="${t.displayName}"></div>
+      <div class="field"><label>Tenant domain</label><input type="text" class="mono" id="td" value="${t.domain}"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Admin email</label><input type="text" class="mono" id="ae" placeholder="" value="${t.adminEmail}"></div>
+      <div class="field"><label>Admin password <span class="hint">— blank = auto</span></label><input type="password" class="mono" id="ap" value="${t.adminPassword}"></div>
+    </div>
+    <div class="row"><div><h5>Load demo / sample data</h5><p>Off → clean production tenant. On → seeded example graph &amp; dashboards.</p></div><button class="sw ${t.loadDemoData?'on':''}" id="ld"></button></div>
+    <div class="banner" id="ib"></div>
+  </div>`);
+  $("#tn",c).oninput=e=>{t.displayName=e.target.value;}; $("#td",c).oninput=e=>{t.domain=e.target.value;};
+  $("#ae",c).oninput=e=>{t.adminEmail=e.target.value;}; $("#ap",c).oninput=e=>{t.adminPassword=e.target.value;};
+  $("#ld",c).onclick=e=>{t.loadDemoData=!t.loadDemoData; e.target.classList.toggle("on",t.loadDemoData);};
+  c.appendChild(nav(true,"Install",doInstall));
+  return c;
+}
+
+async function doInstall(){
+  const b=$("#ib"); b.className="banner"; b.style.display="block"; b.textContent="Writing configuration…";
+  const payload={
+    instanceName:S.instanceName, instanceSlug:S.instanceSlug, primaryDomain:S.primaryDomain, demoMode:S.demoMode,
+    bundledArcade:S.bundledArcade, bundledPostgres:S.bundledPostgres,
+    arcade:S.bundledArcade?null:S.arcade,
+    postgres:{kcJdbcUrl:S.postgres.kcJdbcUrl,kcUser:S.postgres.kcUser,kcPassword:S.postgres.kcPassword,
+      infisicalUri: S.infisicalPgMode==='external' ? S.postgres.infisicalUri : "",
+      shareKeycloak: S.infisicalPgMode==='share'},
+    secrets:S.secrets,
+    functionalities:S.functionalities, ai:S.ai, firstTenant:S.firstTenant
+  };
+  try{
+    const r=await api("/api/install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    if(!r.ok){ b.className="banner fail"; b.textContent="✗ "+r.message; return; }
+    showDone(r);
+  }catch(e){ b.className="banner fail"; b.textContent="✗ "+e.message; }
+}
+
+function showDone(r){
+  const p=$("#panel"); p.innerHTML="";
+  const plan=r.plan;
+  const backup = r.envBackupPath ? `<div class="kv"><span class="k">Backed up previous .env</span><span class="v">${r.envBackupPath}</span></div>`:"";
+  const c=h(`<div class="card">
+    <h2>Ready to install <span class="chip pass">config written</span></h2>
+    <p class="desc">${r.message}</p>
+    <div class="kv"><span class="k">.env</span><span class="v">${r.envPath}</span></div>
+    <div class="kv"><span class="k">orphos.config.json</span><span class="v">${r.configPath}</span></div>
+    ${backup}
+    <div class="kv"><span class="k">Containers</span><span class="v">${plan.containerCount}</span></div>
+    <div class="kv"><span class="k">AI layer</span><span class="v">${plan.needsAi?'on':'off'}</span></div>
+    <p class="note" style="margin-top:16px">Bring the platform up — the wizard can run it for you and stream the log:</p>
+    <div class="btnrow" style="justify-content:flex-start;margin-top:0">
+      <button class="btn" id="runSel">Start platform (${plan.functionalities.join(", ")||"admin"})</button>
+      <button class="btn ghost" id="runFull">Start full platform</button>
+    </div>
+    <pre id="runlog" class="hidden" style="max-height:340px;overflow:auto;white-space:pre-wrap;margin-top:12px"></pre>
+    <p class="note">Runs <span style="font-family:var(--mono)">startmodules.sh</span> / <span style="font-family:var(--mono)">start.sh</span> in the repo (via Git Bash on Windows). The secrets-ready gate confirms your secrets before the app layer starts, so a mis-set value fails fast instead of surfacing as a cached 401. First run builds images — expect several minutes.</p>
+    <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Prefer to run it yourself?</summary>
+      <pre style="margin-top:8px"># Linux / macOS
+./start.sh                        # full platform, honouring your .env
+./startmodules.sh ${plan.functionalities.join(",")||"admin"}
+
+# Windows (Command Prompt, needs Git Bash installed)
+start.bat                         # full platform, honouring your .env
+startmodules.bat ${plan.functionalities.join(",")||"admin"}</pre></details>
+  </div>`);
+  const runSel=$("#runSel",c), runFull=$("#runFull",c);
+  const back=h(`<div class="btnrow"></div>`);
+  const again=h(`<button class="btn ghost">Back to review</button>`); again.onclick=()=>{step=5;render();};
+  back.appendChild(again); c.appendChild(back);
+  runSel.onclick=()=>startPlatform("functionality",[runSel,runFull]);
+  runFull.onclick=()=>startPlatform("full",[runSel,runFull]);
+  p.appendChild(c);
+}
+
+async function startPlatform(mode, btns){
+  const pre=$("#runlog"); pre.classList.remove("hidden"); pre.textContent="[ui] starting… this can take several minutes on first run.\n";
+  btns.forEach(b=>b.disabled=true);
+  try{
+    const resp=await fetch(API_BASE+"/api/run",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:mode,functionalities:S.functionalities})});
+    if(!resp.ok||!resp.body){ pre.textContent+="[ui] failed to start: HTTP "+resp.status+"\n"; return; }
+    const reader=resp.body.getReader(); const dec=new TextDecoder();
+    for(;;){ const {value,done}=await reader.read(); if(done) break;
+      pre.textContent+=dec.decode(value,{stream:true}); pre.scrollTop=pre.scrollHeight; }
+    pre.textContent+="\n[ui] done. Open http://localhost:3001 once services report healthy.\n"; pre.scrollTop=pre.scrollHeight;
+  }catch(e){ pre.textContent+="\n[ui] stream error: "+e.message+"\n"; }
+  finally{ btns.forEach(b=>b.disabled=false); }
+}
+
+boot();
+</script>
+</body>
+</html>

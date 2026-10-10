@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mvp-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <artifactId>eip-common</artifactId>
+    <name>eip-common</name>
+    <description>Cross-service web concerns: shared ApiError + GlobalExceptionHandler, CORS, rate limiting.</description>
+    <packaging>jar</packaging>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- Bootstrap resolver for operator-defined external DB connections.
+             Declared here so every eip-common consumer (all 16 services) gets
+             its EnvironmentPostProcessor on the classpath; it no-ops unless the
+             service has an assignment in the connections registry file. -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-core-dbregistry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <!-- Log4j2 API only. log4j-core is NOT declared here: a library must not
+             pick the implementation for its consumers. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+        <!-- Provided: every service that uses TenantResolutionFilter already
+             pulls in spring-security-oauth2-resource-server via its own POM.
+             We reference JwtAuthenticationToken at compile time and let the
+             auto-config skip the JWT branch (via ConditionalOnClass) when a
+             consumer happens not to have it. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-resource-server</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Provided: EipEventPublisher serializes event payloads with Jackson.
+             Every consumer is a Spring Boot web service, so jackson-databind
+             is already on its runtime classpath via spring-boot-starter-web. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Bucket4j for rate limiting. On the classpath of every service that
+             depends on eip-common; the filter is registered only when the
+             service sets eip.rate-limit.enabled=true (zero-cost otherwise). -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+        </dependency>
+        <!-- Resilience4j: circuit breaker, retry, bulkhead. Used directly (no
+             Spring AOP annotations) so it applies the same way whether the
+             calling class is a Spring bean or a plain object built by hand in
+             an @AutoConfiguration @Bean method. resilience4j-all provides
+             Decorators, used by EipResilienceDecorators to compose more than
+             one mechanism around a single call in the recommended order. -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-bulkhead</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-all</artifactId>
+        </dependency>
+        <!-- Distributed tracing via Micrometer -> OTLP -> Tempo. Spring Boot
+             manages versions through its parent BOM; we just declare the
+             artifact IDs. Adding actuator-starter is the consumer's job
+             since not every lib consumer wants actuator on the classpath,
+             but every EIP service already pulls it in. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
+        <!-- Test only: JUnit Jupiter + AssertJ + spring-mock (MockHttpServletRequest).
+             Same starter the admin-service tests use; we deliberately avoid
+             Mockito here for the same JDK-compatibility reasons documented in
+             admin-service's AdminRbacTest. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Library module: the exclusions above keep Logback from leaking into the services
+             (they all run Log4j2), but the binding itself is test-scope only so consumers stay
+             free to choose one — a library must not force a logging implementation on them. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

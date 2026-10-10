@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orphos - EIP</title>
+    <!-- Inter — the "Orphos Dashboard v3" design canvas's type, matching the
+         palette this theme already takes from it (see orphosTheme.js). Requested
+         as the VARIABLE range 100..900 rather than static instances: the canvas
+         authors intermediate weights (560 on a meeting title, 620 on a group
+         header, 650 on the Ask-Orphos button, 660 on its panel title) which a
+         static 400;500;600;700 set would snap to the nearest step and flatten.
+         Italics come from the matching italic axis.
+         Noto Sans JP — Inter carries no CJK glyphs, so Japanese needs this
+         behind it or it falls through to a browser default. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Noto+Sans+JP:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

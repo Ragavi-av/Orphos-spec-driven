@@ -1,0 +1,328 @@
+<?xml version="1.0"?>
+<!--
+  EIP Strategy Ontology — the CEO's domain: what the company is trying to
+  achieve, what work is being done about it, and what has been decided.
+
+  ── The one genuinely powerful inference in this file ───────────────────────
+  str:contributesTo is a TransitiveProperty spanning the whole delivery chain:
+
+      Milestone -> Project -> Programme -> Initiative -> KeyResult -> Objective
+
+  Because it is transitive, asserting only each local link makes the reasoner
+  infer that a milestone contributes to the company objective at the top. Two
+  questions that normally need recursive application code become one triple
+  pattern:
+      - "which objectives does this slipping milestone endanger?"
+      - "what work, at any depth, is actually behind this objective?"
+
+  This also links strategy to the RAG status already used by the rag-red widget:
+  gov:ragStatus is declared once in eip-governance.owl and reused here, so "what
+  is red" is a single query across metrics, projects and initiatives rather than
+  three.
+
+  Objectives are owned by an ent:Executive, and every persona resolves to an
+  ent:Executive through gov:embodiedBy — which is how "my objectives" becomes a
+  graph walk rather than a hardcoded filter.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/strategy#"
+     xml:base="http://orphos.eip/ontology/strategy"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#"
+     xmlns:str="http://orphos.eip/ontology/strategy#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/strategy"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Objective">
+        <rdfs:label>Objective</rdfs:label>
+        <rdfs:comment>A strategic goal for a period. The top of the contribution
+            chain; nests via str:parentObjective for cascaded goals.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#KeyResult">
+        <rdfs:label>Key Result</rdfs:label>
+        <rdfs:comment>A measurable outcome an Objective is judged by. Points at a
+            gov:Metric via str:measuredByMetric instead of restating a number, so a
+            key result and a dashboard widget can never disagree.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Initiative">
+        <rdfs:label>Initiative</rdfs:label>
+        <rdfs:comment>A funded change effort serving one or more objectives.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Programme">
+        <rdfs:label>Programme</rdfs:label>
+        <rdfs:comment>A cluster of related projects delivering an Initiative.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Project">
+        <rdfs:label>Project</rdfs:label>
+        <rdfs:comment>A bounded delivery with a RAG status — the class behind the
+            "Projects at Risk" widget.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Milestone">
+        <rdfs:label>Milestone</rdfs:label>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/strategy#Decision">
+        <rdfs:label>Decision</rdfs:label>
+        <rdfs:comment>A decision awaiting or having received executive approval — the
+            graph counterpart of decision-log-service, and what the
+            "Pending Decisions" widget counts. str:decidedBy is an ent:Executive,
+            so a persona's pending queue resolves through gov:embodiedBy.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <!-- The transitive delivery chain. See file header. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#contributesTo">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:label>contributes to</rdfs:label>
+        <rdfs:comment>Deliberately without domain or range: it spans Milestone ->
+            Project -> Programme -> Initiative -> KeyResult -> Objective, and any
+            single-class domain would let the reasoner mis-type the whole chain
+            (the same reasoning as ent:locatedAt).</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#contributedToBy">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/strategy#contributesTo"/>
+        <rdfs:comment>Downward view: everything, at any depth, behind an objective.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#parentObjective">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Objective"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/strategy#Objective"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#hasKeyResult">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Objective"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/strategy#KeyResult"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#measuredByMetric">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#KeyResult"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:comment>One number, two uses — the KR and the widget read the same
+            gov:Metric rather than each holding a copy.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#ownedByExecutive">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Executive"/>
+        <rdfs:comment>No domain: objectives, initiatives, programmes and projects all
+            have an accountable executive.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#deliveredByOrgUnit">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#hasMilestone">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Project"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/strategy#Milestone"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#dependsOnProject">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Project"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/strategy#Project"/>
+        <rdfs:comment>Transitive, so a slip propagates along the whole inferred
+            dependency closure, not just to the immediate successor.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#decidedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Executive"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#decisionAbout">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:comment>The subject of the decision — a project, an initiative, a
+            contract, a risk. Left range-free on purpose so a decision can be
+            about anything in the enterprise graph.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/strategy#affectsSystem">
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+        <rdfs:comment>Ties portfolio work to the IT estate in eip-core.owl, so a CTO
+            can see which projects touch a system that is currently degraded.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#objectiveStatus">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>DRAFT, ACTIVE, ACHIEVED, MISSED, ABANDONED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#horizon">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Objective"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>ANNUAL, THREE_YEAR, QUARTERLY.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#baselineValue">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#KeyResult"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#currentValue">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#KeyResult"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#projectStatus">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PLANNED, IN_PROGRESS, ON_HOLD, DONE, CANCELLED. RAG colour is
+            gov:ragStatus, shared with metrics and initiatives.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#percentComplete">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#plannedStartDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#plannedEndDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#actualEndDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#milestoneStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Milestone"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PENDING, MET, MISSED, SLIPPED.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#decisionStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PENDING, APPROVED, REJECTED, DEFERRED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#raisedDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#decidedDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/strategy#rationale">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/strategy#Decision"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>Why the decision went the way it did. Must not name or
+            characterise individuals — decisions are about the business.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- ===================== Alignment with zenitus.owl ===================== -->
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#Project">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/strategy#Project"/>
+    </owl:Class>
+    <owl:ObjectProperty rdf:about="https://orphos.io/ontology/zenitus#assignedToProject">
+        <rdfs:comment>Left as-is: employee-to-project assignment is a staffing fact,
+            not a strategy one, and str: has no per-person link by design.</rdfs:comment>
+    </owl:ObjectProperty>
+
+</rdf:RDF>

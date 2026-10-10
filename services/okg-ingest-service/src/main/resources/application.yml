@@ -1,0 +1,99 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: okg-ingest-service
+  threads:
+    virtual:
+      enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    consumer:
+      group-id: okg-ingest
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    # Producer side is only used by KafkaErrorHandlingConfig's DeadLetterPublishingRecoverer,
+    # to publish exhausted-retry okg-events messages to okg-events.DLT — same String shape as
+    # the consumer above, since the recoverer republishes the original record as-is.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user: ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+okg:
+  kafka:
+    topic: okg-events
+  jira:
+    timeout-seconds: 30
+    page-size: 100
+    sync:
+      enabled: true
+      interval-ms: 1800000    # 30 minutes
+      initial-delay-ms: 60000
+  secrets:
+    namespace: okg-ingest
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against platform-core-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # INBOUND side — lets this service's InternalServiceTokenAuthenticationFilter accept
+    # internal callers (e.g. eip-mcp-ingest) on the admin/sync endpoint (same shared secret).
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# platform-core-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+#
+# Kafka consumers in this service do NOT pass through the HTTP filter —
+# tenant context for Kafka events is bound via TenantContextHolder.runWith(...)
+# reading the X-Tenant-Id Kafka header.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

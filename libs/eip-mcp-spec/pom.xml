@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mvp-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>eip-mcp-spec</artifactId>
+    <name>eip-mcp-spec</name>
+    <description>MCP tool contract library (TO-BE design §5.1). The tool contract IS MCP itself, so
+        this library is deliberately thin: the capability.action tool-naming convention plus the
+        auth/tenant header-propagation helpers that let every MCP server reuse the platform's
+        existing X-Tenant-Id / X-Internal-Token discipline. Depends only on eip-common (inward,
+        toward core) — never on an agent or another MCP server.</description>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- TenantContext / TenantContextHolder for header propagation + re-binding. -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-common</artifactId>
+        </dependency>
+        <!-- Secure tenant resolution (McpTenant): read the current request + authenticated principal. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
+        <!-- Servlet API for reading the current request in McpTenant; provided by the MCP server's
+             web starter at runtime, so compile-only here. -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Session→tenant fallback cache in McpTenant (design §4). Version managed by Spring Boot BOM. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <!-- Micrometer Tracing API, for McpTracePropagator / McpToolTracing: reading the current
+             span and injecting the W3C traceparent onto every outbound call an MCP server makes.
+             The implementation (micrometer-tracing-bridge-otel) already arrives via eip-common;
+             this declares the API the code compiles against rather than leaning on that
+             transitive. Version managed by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing</artifactId>
+        </dependency>
+        <!-- Spring AI's ToolCallback contract, wrapped by McpToolTracing so every MCP tool call
+             gets its own span. Provided, not compile, for the same reason as jakarta.servlet-api
+             above: every MCP server already has the spring-ai MCP server starter at runtime, and
+             a provided dependency is not transitive — so this does not push Spring AI onto the
+             classpath of this library's other consumer, eip-agent-runtime. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Library module: the exclusions above keep Logback from leaking into the services
+             (they all run Log4j2), but the binding itself is test-scope only so consumers stay
+             free to choose one — a library must not force a logging implementation on them. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Library module: skip the inherited Spring Boot repackage goal. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

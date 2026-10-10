@@ -1,0 +1,87 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: 'okg-ingest'
+    static_configs:
+      - targets: ['okg-ingest:8081']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'okg-reasoning'
+    static_configs:
+      - targets: ['okg-reasoning:8088']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'graph-proxy'
+    static_configs:
+      - targets: ['graph-proxy:8080']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'nl-query'
+    static_configs:
+      - targets: ['nl-query:8082']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'priority-engine'
+    static_configs:
+      - targets: ['priority-engine:8083']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'briefing-service'
+    static_configs:
+      - targets: ['briefing-service:8084']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'agent-orchestrator'
+    static_configs:
+      - targets: ['agent-orchestrator:8085']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'decision-log'
+    static_configs:
+      - targets: ['decision-log:8086']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8087']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'platform-core'
+    static_configs:
+      - targets: ['platform-core:8090']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'admin-console'
+    static_configs:
+      - targets: ['admin-console:8094']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'widgets'
+    static_configs:
+      - targets: ['widgets:8095']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'doc-ingest'
+    static_configs:
+      - targets: ['doc-ingest:8091']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'data-ingestion'
+    static_configs:
+      - targets: ['data-ingestion:8096']
+    metrics_path: /actuator/prometheus
+
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['eip-jaeger:14269']
+    metrics_path: /metrics
+
+  - job_name: 'victoria-logs'
+    static_configs:
+      - targets: ['eip-victoria-logs:9428']
+    metrics_path: /metrics

@@ -1,0 +1,481 @@
+<?xml version="1.0"?>
+<!--
+  EIP IT Operations Ontology — the CTO's domain.
+
+  ── Why a separate file instead of editing eip-core.owl ────────────────────
+  eip-core.owl is the IT-ops TBox and is already loaded by OntologyService in
+  every running deployment (with a copy under
+  services/okg-reasoning-service/src/main/resources/). This file EXTENDS it
+  additively and leaves it untouched: no existing statement changes, nothing
+  needs re-syncing, and a deployment that loads only eip-core.owl keeps working
+  exactly as before.
+
+  Two things happen here:
+
+  1. CLASSIFICATION of the classes eip-core.owl already defines. Asserting a
+     class-level owl:hasValue restriction on a class from another namespace is
+     perfectly ordinary OWL, so eip:Incident, eip:ITSystem, eip:SLAMetric,
+     eip:BudgetItem and eip:Alert become self-classifying into gov:DomainIt*
+     without their file being edited. Every incident already in the graph gains
+     an inferred domain and sensitivity the moment this file is loaded.
+
+  2. DEPTH the stub did not have: assets, business services, changes, releases,
+     vulnerabilities and the SLA the metric is measured against.
+
+  ── Inference ──────────────────────────────────────────────────────────────
+  itops:dependsOnSystem is transitive with an inverse, so the blast radius of a
+  degraded system — every system that transitively depends on it, and through
+  itops:supportsService every business service behind those — is the inferred
+  closure rather than a recursive query. Combined with eip:hasIncident, "which
+  business services are affected by this incident" needs one pattern.
+
+  ── PII ────────────────────────────────────────────────────────────────────
+  Incidents, changes and vulnerabilities are attributed to org units and systems,
+  never to a person: no assignee, no reporter, no reviewer. Blame is not a
+  dashboard feature, and an assignee field is the usual way personal data leaks
+  into an ops graph.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/itops#"
+     xml:base="http://orphos.eip/ontology/itops"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#"
+     xmlns:eip="https://orphos.io/ontology/eip#"
+     xmlns:core="http://orphos.eip/ontology/core#"
+     xmlns:itops="http://orphos.eip/ontology/itops#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/itops"/>
+
+    <!-- ========== 1. Classification of the existing eip-core classes ==========
+         No redefinition — only added subClassOf restrictions, so eip-core.owl
+         stays exactly as it is. -->
+
+    <owl:Class rdf:about="https://orphos.io/ontology/eip#ITSystem">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="https://orphos.io/ontology/eip#Incident">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="https://orphos.io/ontology/eip#SLAMetric">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="https://orphos.io/ontology/eip#Alert">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- IT budget lines are money, so they classify into the shared IT/Finance
+         child rather than plain IT — the CTO sees them, and so does the CFO
+         through the Finance side of gov:DomainItSpend. -->
+    <owl:Class rdf:about="https://orphos.io/ontology/eip#BudgetItem">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItSpend"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ===== 1b. Classification of the WORK-ITEM core (core: namespace) =====
+         CAREFUL: there are two different ontologies called eip-core.owl in this
+         repo, and they are not versions of each other:
+
+           ontology/eip-core.owl
+               namespace https://orphos.io/ontology/eip#
+               the IT ESTATE — Incident, ITSystem, CostCentre, SLAMetric,
+               BudgetItem, Alert. Matches the ArcadeDB types that actually hold
+               this tenant's 8000 rows. Deployed as eip-itops-core.owl.
+
+           services/okg-reasoning-service/src/main/resources/eip-core.owl
+               namespace http://orphos.eip/ontology/core#
+               external WORK ITEMS — Issue, Project, Person, plus the inferred
+               OverdueIssue / BlockedIssue / OverloadedPerson. This is the one
+               OntologyService.NS points at and the one reasoning.overload-threshold
+               drives.
+
+         Both are loaded, so both need classifying — otherwise the reasoner holds
+         records that no access rule can reason about. The inferred subclasses
+         (OverdueIssue, BlockedIssue, OverloadedPerson) need no restriction of
+         their own: they are rdfs:subClassOf Issue / Person, so they inherit these
+         restrictions, which is the point of classifying at class level. -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Issue">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Project">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Person">
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainEnterprise"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ==================== 2. New classes ==================== -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#BusinessService">
+        <rdfs:label>Business Service</rdfs:label>
+        <rdfs:comment>Something the business consumes ("payroll processing",
+            "customer portal"), supported by one or more eip:ITSystem. The layer
+            that lets an IT incident be described in business terms — which is what
+            a CEO or COO actually needs from an ops dashboard.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#Asset">
+        <rdfs:label>IT Asset</rdfs:label>
+        <rdfs:comment>A configuration item — server, licence, device, cloud resource.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItAssets"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#ServiceLevelAgreement">
+        <rdfs:label>Service Level Agreement</rdfs:label>
+        <rdfs:comment>The commitment an eip:SLAMetric is measured against. Separating
+            the promise from the measurement is what makes "are we in breach"
+            answerable rather than merely "what is the number".</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#ChangeRequest">
+        <rdfs:label>Change Request</rdfs:label>
+        <rdfs:comment>A planned change to a system. Linked to incidents via
+            itops:incidentCausedByChange, which is how change-induced failure
+            becomes measurable instead of anecdotal.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#Release">
+        <rdfs:label>Release</rdfs:label>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/itops#Vulnerability">
+        <rdfs:label>Vulnerability</rdfs:label>
+        <rdfs:comment>A known weakness affecting an asset or system. Classified into
+            gov:DomainItSecurity and Confidential — an unpatched-vulnerability list
+            is a target map, so it does not inherit the Internal sensitivity of the
+            rest of the estate.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItSecurity"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <!-- System dependency closure — the blast radius. See file header. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#dependsOnSystem">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#dependedOnBySystem">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/itops#dependsOnSystem"/>
+        <rdfs:domain rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#supportsService">
+        <rdfs:domain rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/itops#BusinessService"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#serviceSupportedBy">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/itops#supportsService"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#BusinessService"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#serviceForOrgUnit">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#BusinessService"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+        <rdfs:comment>Who consumes the service — turns "a system is down" into "this
+            division is blocked".</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#assetSupportsSystem">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Asset"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#slaForService">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ServiceLevelAgreement"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/itops#BusinessService"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#metricAgainstSla">
+        <rdfs:domain rdf:resource="https://orphos.io/ontology/eip#SLAMetric"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/itops#ServiceLevelAgreement"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#changeAffectsSystem">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ChangeRequest"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#incidentCausedByChange">
+        <rdfs:domain rdf:resource="https://orphos.io/ontology/eip#Incident"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/itops#ChangeRequest"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#changeInRelease">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ChangeRequest"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/itops#Release"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#vulnerabilityAffects">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Vulnerability"/>
+        <rdfs:comment>An Asset or an ITSystem. Range-free so a finding can attach at
+            whichever level it was detected.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/itops#operatedByOrgUnit">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+        <rdfs:comment>The team that runs it. No domain — systems, services, assets and
+            changes are all operated by an org unit. This is the ONLY ownership
+            link: there is deliberately no per-person assignee anywhere in this
+            file.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#criticality">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>TIER_1 .. TIER_4. Asserted by systems, services and assets.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#healthStatus">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>HEALTHY, DEGRADED, CRITICAL, OFFLINE — what the system-health
+            widget counts.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#uptimePercent">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#environment">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PROD, STAGING, DEV, DR.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#assetType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Asset"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>SERVER, LICENCE, DEVICE, CLOUD_RESOURCE, NETWORK.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#annualCost">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>Run cost, in gov:currency — the number that makes IT spend
+            attributable to a system rather than only to a budget line.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#endOfLifeDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#slaTargetPercent">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ServiceLevelAgreement"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#responseTimeMinutes">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ServiceLevelAgreement"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#changeStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ChangeRequest"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>REQUESTED, APPROVED, SCHEDULED, IMPLEMENTED, ROLLED_BACK, FAILED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#changeRisk">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#ChangeRequest"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>LOW, MEDIUM, HIGH, EMERGENCY.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#scheduledDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#releaseVersion">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Release"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#severity">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>CRITICAL, HIGH, MEDIUM, LOW — shared by vulnerabilities and,
+            where a source provides it, incidents.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#cveId">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Vulnerability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/itops#remediationStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/itops#Vulnerability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>OPEN, PATCHING, PATCHED, ACCEPTED_RISK.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+</rdf:RDF>

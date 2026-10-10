@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="52dp"
+        android:paddingBottom="120dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/scr_back"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/text" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:text="@string/scr_title"
+                    android:textColor="@color/text"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/scr_subtitle"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+            <!-- Shared header (see HeaderActions): availability dot, bell, search -->
+            <FrameLayout android:id="@+id/btn_status" android:layout_width="46dp" android:layout_height="38dp"
+                android:background="@drawable/card_bg_2" android:clickable="true" android:focusable="true">
+                <View android:id="@+id/status_dot" android:layout_width="11dp" android:layout_height="11dp" android:layout_gravity="center"
+                    android:background="@drawable/circle_icon" android:backgroundTint="@color/status_busy" />
+            </FrameLayout>
+            <FrameLayout android:id="@+id/btn_bell" android:layout_width="46dp" android:layout_height="38dp"
+                android:layout_marginStart="10dp" android:background="@drawable/card_bg_2"
+                android:clickable="true" android:focusable="true">
+                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center"
+                    android:src="@drawable/ic_bell" app:tint="@color/text" />
+                <View android:id="@+id/bell_badge" android:visibility="gone"
+                    android:layout_width="7dp" android:layout_height="7dp" android:layout_gravity="top|end"
+                    android:layout_marginTop="9dp" android:layout_marginEnd="12dp"
+                    android:background="@drawable/circle_icon" android:backgroundTint="@color/red" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Search with mic -->
+        <LinearLayout
+            android:id="@+id/scr_search"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/search_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+            <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                android:src="@drawable/ic_search" app:tint="@color/text_muted" />
+            <EditText android:id="@+id/search_input" style="@style/SearchInput"
+                android:layout_marginStart="12dp" android:hint="@string/home_search_hint" />
+            <ImageView android:id="@+id/search_orb" style="@style/SearchOrb" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="@string/scr_capture_way"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <!-- Capture types -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_bg"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <LinearLayout android:id="@+id/cap_handwriting" style="@style/CaptureItem">
+                <FrameLayout style="@style/CaptureCircle" android:backgroundTint="@color/primary">
+                    <ImageView style="@style/CaptureGlyph" android:src="@drawable/ic_scribbles" />
+                </FrameLayout>
+                <TextView style="@style/CaptureLabel" android:text="@string/cap_handwriting_label" />
+                <TextView style="@style/CaptureSub" android:text="@string/cap_handwriting_sub" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/cap_type" style="@style/CaptureItem">
+                <FrameLayout style="@style/CaptureCircle" android:backgroundTint="@color/green">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_gravity="center" android:text="T" android:textColor="@color/on_primary"
+                        android:textSize="20sp" android:textStyle="bold" />
+                </FrameLayout>
+                <TextView style="@style/CaptureLabel" android:text="@string/cap_type_label" />
+                <TextView style="@style/CaptureSub" android:text="@string/cap_blank" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/cap_voice" style="@style/CaptureItem">
+                <FrameLayout style="@style/CaptureCircle" android:backgroundTint="@color/brand_purple">
+                    <ImageView style="@style/CaptureGlyph" android:src="@drawable/ic_mic" />
+                </FrameLayout>
+                <TextView style="@style/CaptureLabel" android:text="@string/cap_voice_label" />
+                <TextView style="@style/CaptureSub" android:text="@string/cap_blank" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/cap_image" style="@style/CaptureItem">
+                <FrameLayout style="@style/CaptureCircle" android:backgroundTint="@color/orange">
+                    <ImageView style="@style/CaptureGlyph" android:src="@drawable/ic_camera" />
+                </FrameLayout>
+                <TextView style="@style/CaptureLabel" android:text="@string/cap_image_label" />
+                <TextView style="@style/CaptureSub" android:text="@string/cap_image_sub" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/scr_recent"
+                android:textColor="@color/text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/scr_captures_see_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:text="@string/scr_saved_items_link"
+                android:textColor="@color/link"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/capture_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never" />
+
+        <!-- Shown only when the user has saved nothing yet (no sample captures). -->
+        <TextView
+            android:id="@+id/scr_captures_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp"
+            android:text="@string/captures_empty"
+            android:textColor="@color/text_muted"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <!-- AI Insights: four tappable tiles; each opens NoteInsightsActivity on its list. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                android:src="@drawable/orphos_orb" />
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:layout_marginStart="8dp" android:fontFamily="sans-serif-medium"
+                android:text="@string/scr_insights" android:textColor="@color/text" android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+            <LinearLayout android:id="@+id/scr_tile_notes" style="@style/InsightTile">
+                <ImageView style="@style/InsightIcon" android:src="@drawable/ic_note"
+                    android:backgroundTint="@color/wash_blue" app:tint="@color/link" />
+                <LinearLayout style="@style/InsightText">
+                    <TextView android:id="@+id/scr_stat_notes" style="@style/InsightNum" android:text="0" />
+                    <TextView style="@style/InsightLabel" android:text="@string/scr_stat_notes" />
+                </LinearLayout>
+                <ImageView style="@style/InsightChevron" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/scr_tile_actions" style="@style/InsightTile"
+                android:layout_marginStart="10dp">
+                <ImageView style="@style/InsightIcon" android:src="@drawable/ic_check_circle"
+                    android:backgroundTint="@color/wash_green" app:tint="@color/green" />
+                <LinearLayout style="@style/InsightText">
+                    <TextView android:id="@+id/scr_stat_actions" style="@style/InsightNum" android:text="0" />
+                    <TextView style="@style/InsightLabel" android:text="@string/scr_stat_actions" />
+                </LinearLayout>
+                <ImageView style="@style/InsightChevron" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+            <LinearLayout android:id="@+id/scr_tile_decisions" style="@style/InsightTile">
+                <ImageView style="@style/InsightIcon" android:src="@drawable/ic_help"
+                    android:backgroundTint="@color/wash_purple" app:tint="@color/purple" />
+                <LinearLayout style="@style/InsightText">
+                    <TextView android:id="@+id/scr_stat_decisions" style="@style/InsightNum" android:text="0" />
+                    <TextView style="@style/InsightLabel" android:text="@string/scr_stat_decisions" />
+                </LinearLayout>
+                <ImageView style="@style/InsightChevron" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/scr_tile_insights" style="@style/InsightTile"
+                android:layout_marginStart="10dp">
+                <ImageView style="@style/InsightIcon" android:src="@drawable/ic_bulb"
+                    android:backgroundTint="@color/wash_orange" app:tint="@color/orange" />
+                <LinearLayout style="@style/InsightText">
+                    <TextView android:id="@+id/scr_stat_insights" style="@style/InsightNum" android:text="0" />
+                    <TextView style="@style/InsightLabel" android:text="@string/scr_stat_insights" />
+                </LinearLayout>
+                <ImageView style="@style/InsightChevron" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

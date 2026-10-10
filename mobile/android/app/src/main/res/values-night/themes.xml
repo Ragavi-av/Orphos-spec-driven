@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Single dark aesthetic — night mirrors the default theme. -->
+    <style name="Theme.Orphos" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorPrimaryContainer">@color/md_primary_container_light</item>
+        <item name="colorOnPrimaryContainer">@color/md_on_primary_container_light</item>
+        <item name="colorSecondary">@color/brand_purple</item>
+        <item name="colorOnSecondary">@color/on_primary</item>
+        <item name="colorSecondaryContainer">@color/surface_2</item>
+        <item name="colorOnSecondaryContainer">@color/md_on_secondary_container_light</item>
+        <item name="colorTertiary">@color/green</item>
+        <item name="colorError">@color/red</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorSurfaceVariant">@color/surface_2</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/border</item>
+        <item name="colorOutlineVariant">@color/border</item>
+
+        <item name="colorSurfaceContainerLowest">@color/bg</item>
+        <item name="colorSurfaceContainerLow">@color/surface</item>
+        <item name="colorSurfaceContainer">@color/surface_2</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_2</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_3</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Orphos.Dialog</item>
+
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

@@ -1,0 +1,207 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: nl-query-service
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+ollama:
+  base-url: ${OLLAMA_URL:http://eip-ollama:11434}
+  # Default in-house chat model. Apache-2.0 (Qwen2.5 1.5B) — SINGLE mode default,
+  # and the model the distribution actually ships/pulls. (Was gemma3:4b, which is
+  # never pulled here and made the in-house provider mislabel as "Gemma".)
+  # Override via OLLAMA_CHAT_MODEL; granite3.1-dense:2b and phi3.5 also become
+  # selectable in MULTIPLE mode via GraniteChatProvider / PhiChatProvider.
+  chat-model: ${OLLAMA_CHAT_MODEL:qwen2.5:1.5b}
+  alt-chat-model: ${OLLAMA_ALT_CHAT_MODEL:phi3.5}
+  granite-model: ${OLLAMA_GRANITE_MODEL:granite3.1-dense:2b}
+  # bge-m3: multilingual (incl. Japanese), 1024-dim — replaces nomic-embed-text
+  # (English-centric, 768-dim). Same model is used by doc-ingest so the RAG and
+  # document corpora share one cross-lingual embedding space.
+  embed-model: ${OLLAMA_EMBED_MODEL:bge-m3}
+  # Embeddings run on the hi-memory container so the primary Ollama never has to
+  # hold the embedding model and a chat model at the same time — that co-residency
+  # is what pushed eip-ollama past its memory limit and got the model runner
+  # OOM-killed ("llama-server process has terminated: signal: killed").
+  embed-url: ${OLLAMA_EMBED_URL:http://eip-ollama-hi:11434}
+  hi-base-url: ${OLLAMA_HI_URL:http://eip-ollama-hi:11434}
+  # Compact hi-memory chat model. Apache-2.0 (Qwen2.5 1.5B) — replaced
+  # gemma2:2b (Gemma Terms of Use). Property name kept for compatibility.
+  hi-chat-model: ${OLLAMA_HI_CHAT_MODEL:qwen2.5:1.5b}
+
+qdrant:
+  host: ${QDRANT_HOST:eip-qdrant}
+  port: ${QDRANT_PORT:6333}
+  grpc-port: ${QDRANT_GRPC_PORT:6334}
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemma-3-27b-it}
+
+anthropic:
+  api-key: ${ANTHROPIC_API_KEY:}
+  model: ${ANTHROPIC_MODEL:claude-opus-4-7}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    - GEMINI_API_KEY=eip/gemini#api_key
+    - ANTHROPIC_API_KEY=eip/anthropic#api_key
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against admin-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # INBOUND side — validates the X-Internal-Token on /api/nl-query/internal/**
+    # calls (e.g. from mail-insight-service requesting an LLM completion).
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+# Per-provider tuning. Each provider reads its own block at startup.
+# - temperature   : sampling temperature (0.0 deterministic .. 1.0 creative).
+# - num-predict   : Ollama-style max output tokens (in-house providers).
+# - max-tokens    : equivalent cap on the external HTTP providers.
+# - timeout-seconds : how long to wait for the model to finish.
+# - prompt-suffix : optional model-specific guidance appended after the
+#   shared briefing contract. Helps coax smaller models to honour the
+#   ===FOLLOWUPS=== output structure.
+chat-providers:
+  # num-ctx pins the Ollama context window. Without it, models that advertise a
+  # huge context (e.g. Phi-3.5 = 128k) make Ollama allocate an enormous KV cache
+  # and the model runner is OOM-killed. 4096 covers the briefing prompt + output.
+  # num-predict caps output tokens. Measured on CPU-only Ollama, generation runs
+  # at ~12 tok/s (qwen2.5:1.5b) or ~4.8 tok/s (granite3.1-dense:2b), so each 100
+  # tokens of output is 8-20s. It is the SECOND lever, not the first: prompt
+  # prefill (~42 tok/s / ~22 tok/s) usually costs more than generation, so shrink
+  # the prompt — live-context rows, retrieval caps, briefing rules — before
+  # squeezing this. A briefing plus three follow-ups fits in ~220 tokens; raise
+  # NLQUERY_NUM_PREDICT if answers start getting cut off mid-sentence.
+  inhouse:
+    temperature: 0.3
+    num-predict: ${NLQUERY_NUM_PREDICT:220}
+    num-ctx: 4096
+    timeout-seconds: 360
+    prompt-suffix: ""
+  inhouse-phi:
+    # Phi tends to follow structure well at lower temperature.
+    temperature: 0.2
+    num-predict: ${NLQUERY_NUM_PREDICT:220}
+    num-ctx: 4096
+    timeout-seconds: 240
+    prompt-suffix: >-
+      Be especially strict about the response format: write the briefing as
+      flowing prose, then emit the literal line ===FOLLOWUPS=== on its own,
+      then exactly three short questions labelled Q1: Q2: Q3:.
+  inhouse-hi:
+    # Qwen2.5 1.5B is small and benefits from slightly higher temperature plus
+    # an explicit nudge to stay in prose form.
+    temperature: 0.4
+    num-predict: ${NLQUERY_NUM_PREDICT:220}
+    num-ctx: 4096
+    timeout-seconds: 360
+    prompt-suffix: >-
+      Write at least four complete sentences of flowing prose. No bullet
+      points, no headings, no raw field names. End with the line
+      ===FOLLOWUPS=== followed by exactly three short Q1/Q2/Q3 questions.
+  gemma:
+    temperature: 0.3
+    max-tokens: 2048
+    timeout-seconds: 120
+    prompt-suffix: ""
+  claude:
+    temperature: 0.3
+    max-tokens: 2048
+    timeout-seconds: 120
+    prompt-suffix: ""
+
+# Federated retrieval caps. Every kept snippet is pasted into the briefing
+# prompt, so these are latency settings as much as relevance settings: at the
+# measured ~25 tok/s prefill on CPU, 12 snippets was adding well over a minute
+# to every answer. (The former `rag.context.chunks` key here was dead config —
+# nothing read it; the real properties live under `nl-query.retrieval`.)
+nl-query:
+  retrieval:
+    global-max-results:   ${NLQUERY_RAG_GLOBAL_MAX:4}
+    per-source-max-results: ${NLQUERY_RAG_PER_SOURCE_MAX:3}
+
+# ── Answer-latency controls ──────────────────────────────────────────────────
+# A question costs up to three sequential model calls (scope classifier →
+# briefing → trust self-check) plus retrieval and the ArcadeDB snapshot. The
+# settings below remove the two optional model calls and cache the repeatable
+# work; every one is env-overridable so it can be flipped without a rebuild.
+nlquery:
+  # Provider used when the caller names none and no per-tenant usage assignment
+  # exists. 'inhouse' = local Ollama (private, but CPU-bound and slow); 'gemma' =
+  # Google AI (measured ~3s end to end, needs GEMINI_API_KEY and sends prompt
+  # context off-network). Falls back to 'inhouse' automatically if the chosen
+  # provider has no usable API key.
+  default-provider: ${NLQUERY_DEFAULT_PROVIDER:inhouse}
+  live-context:
+    # Rows per entity type pulled from ArcadeDB into the prompt. 13 entity types
+    # at the previous 10-12 rows each dominated prompt size.
+    row-limit: ${NLQUERY_LIVE_CONTEXT_ROWS:2}
+  scope-gate:
+    # Pre-flight RELEVANT/IRRELEVANT classifier — one extra model round trip per
+    # question. Off by default: RULE 0 in the briefing prompt and the
+    # OUT_OF_SCOPE parse in NlQueryService remain as backstops. Set true to
+    # restore the stricter provider-independent gate at the cost of latency.
+    enabled: ${NLQUERY_SCOPE_GATE_ENABLED:false}
+  trust:
+    # Grounding band, provenance and confidence are computed deterministically
+    # and stay on. Only the LLM groundedness self-check — a second full model
+    # call per answer — is disabled here.
+    self-check-enabled: ${NLQUERY_TRUST_SELF_CHECK:false}
+  cache:
+    # Embedding vectors: pure function of text + model, so a long TTL is safe.
+    embeddings-ttl-minutes:  ${NLQUERY_CACHE_EMBEDDINGS_TTL_MIN:120}
+    # ArcadeDB enterprise snapshot, per tenant + persona. Keep this short — it is
+    # the layer that decides how quickly newly-seeded records become visible.
+    live-context-ttl-seconds: ${NLQUERY_CACHE_LIVE_CONTEXT_TTL_SEC:60}
+    # Whole answers, per tenant + persona + provider + model + question.
+    answers-ttl-minutes:      ${NLQUERY_CACHE_ANSWERS_TTL_MIN:10}
+
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# admin-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list). Production deployments override via
+    # EIP_SECURITY_ALLOWED_ISSUERS_0_ etc.
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

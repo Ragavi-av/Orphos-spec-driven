@@ -1,0 +1,310 @@
+<?xml version="1.0"?>
+<!--
+  EIP Risk & Compliance Ontology — the register of what could go wrong, the
+  controls that stop it, the obligations that require them, and the audits that
+  test them.
+
+  ── Why this file exists in a persona project ──────────────────────────────
+  Risk is the domain that binds the others: a rsk:Risk threatens a str:Objective,
+  is mitigated by a rsk:Control, may be caused by an eip:ITSystem, and carries a
+  fin:-denominated exposure. Modelling it means a CEO's "what threatens the plan"
+  and a CFO's "what is our exposure" read the same records.
+
+  ── Inference ──────────────────────────────────────────────────────────────
+  rsk:mitigatedBy and str:contributesTo compose: because contributesTo is
+  transitive, a control on a project-level risk is reachable from the top-level
+  objective it ultimately protects, with no application-side traversal.
+
+  ── PII ────────────────────────────────────────────────────────────────────
+  rsk:AuditFinding is classified gov:Confidential, and its rsk:findingDetail is
+  documented as business-only text. Findings that name or characterise an
+  individual are gov:Restricted — which, since no persona holds Restricted, means
+  the model can recognise them and refuse to serve them rather than leaking them
+  to whoever holds the Risk domain.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/risk#"
+     xml:base="http://orphos.eip/ontology/risk"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#"
+     xmlns:rsk="http://orphos.eip/ontology/risk#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/risk"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#Risk">
+        <rdfs:label>Risk</rdfs:label>
+        <rdfs:comment>An identified threat with likelihood, impact and a derived
+            severity. rsk:residualSeverity is stored alongside rsk:inherentSeverity
+            so the effect of controls is visible rather than implied.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#Control">
+        <rdfs:label>Control</rdfs:label>
+        <rdfs:comment>A measure that reduces a risk. Its rsk:controlEffectiveness is
+            what turns inherent severity into residual severity.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#Policy">
+        <rdfs:label>Policy</rdfs:label>
+        <rdfs:comment>An internal rule that controls implement.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#ComplianceObligation">
+        <rdfs:label>Compliance Obligation</rdfs:label>
+        <rdfs:comment>An external requirement (regulation, standard, contractual
+            clause) the company must satisfy — e.g. a data-protection duty or an
+            ISO control objective.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#Audit">
+        <rdfs:label>Audit</rdfs:label>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/risk#AuditFinding">
+        <rdfs:label>Audit Finding</rdfs:label>
+        <rdfs:comment>A gap an audit found, against a control or obligation. See the
+            PII note in this file's header.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#mitigatedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#mitigates">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/risk#mitigatedBy"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:comment>Gives "which risks would this control failing expose" for
+            free — the question an audit finding actually raises.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#threatensObjective">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/strategy#Objective"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#threatensSystem">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#ownedByExecutive">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Executive"/>
+        <rdfs:comment>No domain: risks, controls and obligations all have an owner.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#implementsPolicy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#Policy"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#satisfiesObligation">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#ComplianceObligation"/>
+        <rdfs:comment>Asserted by Control and Policy. An obligation with no
+            satisfying control is an unmet obligation — a gap query with no extra
+            modelling.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#auditCovers">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Audit"/>
+        <rdfs:comment>What was in scope — a control, an obligation, an org unit or a
+            system. Range-free on purpose.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#raisedFinding">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Audit"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/risk#findingAgainstControl">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#riskCategory">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>STRATEGIC, OPERATIONAL, FINANCIAL, TECHNOLOGY, REGULATORY, PEOPLE.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#likelihood">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+        <rdfs:comment>1 (rare) .. 5 (almost certain).</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#impact">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+        <rdfs:comment>1 (negligible) .. 5 (severe).</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#inherentSeverity">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#residualSeverity">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#exposureAmount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>Quantified financial exposure, in gov:currency. What makes a
+            risk register readable by a CFO as well as a risk owner.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#riskStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>OPEN, MITIGATING, ACCEPTED, CLOSED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#identifiedDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Risk"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#controlType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PREVENTIVE, DETECTIVE, CORRECTIVE.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#controlEffectiveness">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>EFFECTIVE, PARTIAL, INEFFECTIVE, NOT_TESTED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#lastTestedDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Control"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#obligationSource">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#ComplianceObligation"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>The regulation or standard it comes from.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#complianceStatus">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>COMPLIANT, PARTIAL, NON_COMPLIANT, NOT_ASSESSED.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#auditType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#Audit"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>INTERNAL, EXTERNAL, REGULATORY, CLIENT.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#findingSeverity">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>LOW, MEDIUM, HIGH, CRITICAL.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#findingStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>OPEN, REMEDIATING, CLOSED, ACCEPTED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#findingDetail">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>The gap, described in terms of the control or process. Must not
+            name or characterise an individual; a finding that does is
+            gov:Restricted and must not be loaded into this graph at all.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/risk#remediationDueDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/risk#AuditFinding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+</rdf:RDF>

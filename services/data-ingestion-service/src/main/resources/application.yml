@@ -1,0 +1,137 @@
+server:
+  port: 8096
+
+spring:
+  application:
+    name: data-ingestion-service
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+  batch:
+    job:
+      # Do not auto-run any Job at context startup — the Zoho batch job only starts via
+      # ZohoBatchController's POST /jobs/{id}/run. Without this, Spring Boot's Batch
+      # autoconfiguration runs every Job bean found in the context as soon as it starts.
+      enabled: false
+    jdbc:
+      # Spring Batch's own execution/step metadata lives in the embedded H2 database (see
+      # the h2 dependency in this module's pom) — auto-create its schema there. This is
+      # intentionally NOT a shared/persistent datastore: it does not survive a restart, and
+      # nothing else in this service (or the platform) reads or writes it.
+      initialize-schema: embedded
+
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user: ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+ingestion:
+  connection:
+    # Requirement 1.5 — a connection test must answer within 30 seconds.
+    test-timeout-seconds: 30
+    # Requirement 1.7 — per-source HikariCP pool size unless the source overrides it.
+    default-max-pool-size: 4
+  metadata:
+    # Requirement 2.5 — discovered schema snapshots are cached for 24 hours.
+    cache-hours: 24
+    # Row-count statistics are computed for at most this many tables per
+    # discovery pass (COUNT(*) on every table of a huge warehouse is unkind).
+    max-row-count-tables: 200
+  preview:
+    # Requirement 8.5 — data-preview columns whose name contains any of these
+    # fragments (case-insensitive) are masked server-side. Err on the side of
+    # adding more: masking fails closed.
+    sensitive-patterns: password,secret,token,ssn,credit,card,iban,salary,dob,birth,email,phone
+  secrets:
+    namespace: data-ingestion
+  erp:
+    # Per-request timeout for enterprise-system (REST_OPENAPI / ZOHO_ERP) reads.
+    request-timeout-seconds: 30
+  zoho-batch:
+    # Rows per Spring Batch chunk (io.orphos.eip.dataingestion.zohobatch) — how many mapped
+    # records ZohoItemWriter writes per call / how often progress is checkpointed.
+    chunk-size: 100
+  okg-ingest:
+    # Graph vertex targets are written by delegating to okg-ingest-service's
+    # generic graph write API (service-to-service via the shared internal token).
+    base-url: ${EIP_OKG_INGEST_BASE_URL:http://eip-okg-ingest:8081}
+    request-timeout-seconds: 60
+  jobs:
+    # Requirement 4.3 — scheduler tick: fires due CRON/ONE_TIME jobs and picks
+    # up queued retries. Cross-tenant, tenant context bound per iteration.
+    scheduler-enabled: true
+    scheduler-interval-ms: 15000
+    initial-delay-ms: 20000
+    # Requirement 9.1 — fixed pool of concurrently executing extraction runs.
+    max-parallel: 4
+    # Requirement 6.7 — rows per progress flush unless the job overrides it.
+    default-batch-size: 500
+    # Requirement 9.6 — JDBC fetch size for streaming extraction (with
+    # autoCommit=false so PostgreSQL uses a server-side cursor).
+    fetch-size: 500
+    # Requirement 4.6 — retry ceiling and exponential backoff base
+    # (delay = retry-backoff-seconds * 2^attempt).
+    default-max-retries: 3
+    retry-backoff-seconds: 30
+    # Requirement 7.4 — leave due jobs queued while CPU or heap is above this.
+    throttle-percent: 90
+    # Requirement 7.6 — daily prune of run history older than this.
+    run-retention-days: 90
+    prune-cron: "0 10 3 * * *"
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against platform-core-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # INBOUND side — lets this service's /api/internal/sources endpoint accept the
+    # data-flow aggregator, and lets GraphTargetWriter call okg-ingest. Without
+    # this binding eip.security.internal-service-token (declared below) resolves
+    # EMPTY and both paths fail, because the placeholder chain never falls
+    # through to the tenant-discovery token above.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Multi-issuer JWT validation — same pattern as okg-ingest-service: the
+# trusted-issuer set is fetched from platform-core-service so a new tenant is
+# accepted without restarting this service.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    # Shared secret sent as X-Internal-Token on service-to-service calls
+    # (e.g. writing graph vertices to okg-ingest); must match okg-ingest's value.
+    internal-service-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # JWKS is fetched from the internal Keycloak hostname; iss-claim verification
+    # still uses the browser-facing URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

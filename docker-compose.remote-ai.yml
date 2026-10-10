@@ -1,0 +1,125 @@
+﻿# Remote AI tier — runs on a SECOND machine (192.168.10.2), not the primary host.
+#
+# Purpose: move the three biggest memory consumers off the primary Orphos host,
+# which caps WSL2 at 12 GB while the full fleet declares ~27 GB of mem_limits.
+# Moving these three sheds ~13 GB (ollama 4.5g + ollama-hi 4.5g + docling 4g).
+#
+# This file is deliberately SELF-CONTAINED and differs from docker-compose.ai.yml
+# in exactly three ways, each required to run away from the primary host:
+#   1. No `networks: eip-net external: true` — that bridge exists only on the
+#      primary. These services are reached over the LAN by published port, so a
+#      plain default bridge is correct here.
+#   2. No fluentd log driver — Fluent Bit listens on localhost:24224 on the
+#      primary only. json-file keeps logs readable via `docker logs`.
+#   3. Docling is included here (it lives in docker-compose.app.yml upstream)
+#      so all three remote services start from one file.
+# Image digests, mem_limits, OLLAMA_MAX_LOADED_MODELS and host ports are kept
+# IDENTICAL to the upstream definitions — do not drift them independently.
+#
+# Usage on 192.168.10.2:
+#   docker compose -p eip-remote-ai -f docker-compose.remote-ai.yml up -d
+#   docker exec eip-ollama    ollama pull granite3.1-dense:2b
+#   docker exec eip-ollama    ollama pull phi3.5
+#   docker exec eip-ollama-hi ollama pull qwen2.5:1.5b
+#   docker exec eip-ollama-hi ollama pull bge-m3
+#
+# Then on the primary host, set in .env:
+#   OLLAMA_URL=http://192.168.10.2:11434
+#   OLLAMA_HI_URL=http://192.168.10.2:11435
+#   OLLAMA_EMBED_URL=http://192.168.10.2:11435
+#   DOCLING_URL=http://192.168.10.2:5001
+
+volumes:
+  ollama_data:
+    name: eip-ollama-data
+  ollama_hi_data:
+    name: eip-ollama-hi-data
+
+x-jsonfile-logging: &jlog
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Primary Ollama — chat models ONLY: Granite 3.1 Dense 2B (default in-house,
+  # Apache-2.0) and Phi-3.5 Mini (MIT). OLLAMA_MAX_LOADED_MODELS=1 keeps at most
+  # one resident: switching Granite<->Phi reloads (brief cold start), but the
+  # container can never hold two ~2GB models at once and get OOM-killed.
+  # Embeddings deliberately run on ollama-hi so a chat model and the embedding
+  # model are never resident together here.
+  ollama:
+    image: ollama/ollama@sha256:f1a705f2bd113fb8d15f85f7c217f0dc5f6bebda6b0cc42b82c3ad165ffcb9dc
+    container_name: eip-ollama
+    logging: *jlog
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      # -1 keeps the model resident indefinitely. With MAX_LOADED_MODELS above,
+      # the resident set is bounded and fits mem_limit, so there is nothing to
+      # reclaim by unloading — and a 5m idle gap used to mean the next question
+      # paid a full cold model load. Set a duration (e.g. "5m") to restore
+      # eviction on a memory-constrained host.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
+      # Bind all interfaces so the primary host can reach this over the LAN.
+      # The official image already defaults to this; set explicitly so a future
+      # base-image change cannot silently strand the primary.
+      OLLAMA_HOST: "0.0.0.0:11434"
+    # 4.5 GB: Phi-3.5 Mini uses full multi-head attention (no GQA), so its KV
+    # cache is ~0.37 MB/token. At the pinned num_ctx=4096 that is ~1.5 GB of KV
+    # on top of the 2.2 GB weights — needs ~4 GB resident.
+    mem_limit: 5634m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # High-memory Ollama — hosts Qwen2.5 1.5B (~1.0 GB, Apache-2.0) AND the bge-m3
+  # multilingual embedding model (~1.2 GB, MIT). Both stay resident together
+  # (OLLAMA_MAX_LOADED_MODELS=2) so embeddings never evict the chat model and
+  # there is no per-query reload thrash. Host port is 11435 to avoid clashing
+  # with the primary Ollama container above.
+  ollama-hi:
+    image: ollama/ollama@sha256:f1a705f2bd113fb8d15f85f7c217f0dc5f6bebda6b0cc42b82c3ad165ffcb9dc
+    container_name: eip-ollama-hi
+    logging: *jlog
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_hi_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      # -1 keeps the model resident indefinitely. With MAX_LOADED_MODELS above,
+      # the resident set is bounded and fits mem_limit, so there is nothing to
+      # reclaim by unloading — and a 5m idle gap used to mean the next question
+      # paid a full cold model load. Set a duration (e.g. "5m") to restore
+      # eviction on a memory-constrained host.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
+      OLLAMA_HOST: "0.0.0.0:11434"
+    mem_limit: 5634
+    m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Docling document-conversion sidecar (PDF/DOCX -> structured text) used by
+  # doc-ingest. Stateless: no volume, safe to restart or relocate freely.
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu@sha256:7e07522e0240c1db3ff5b837ffa969c2ecd5a71664c0e0369f5a69fc169e30ba
+    container_name: eip-docling
+    logging: *jlog
+    ports: ["5001:5001"]
+    environment:
+      - DOCLING_SERVE_ENABLE_UI=0
+    mem_limit: 4g
+    restart: unless-stopped

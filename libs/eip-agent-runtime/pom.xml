@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mvp-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <artifactId>eip-agent-runtime</artifactId>
+    <name>eip-agent-runtime</name>
+    <description>Reusable agent engine (TO-BE design §5.3): the langchain4j planner loop, the MCP
+        gateway client (resolves tool names via the registry, propagates headers), approval
+        persistence, tenant wiring, and startup self-registration. A standalone agent becomes a thin
+        Spring Boot app: pull in this library, declare its AgentManifest, register at startup, expose
+        /invoke. Depends only on shared contracts + core libs — never on a sibling agent or MCP
+        server (invariants I1, I2).</description>
+    <packaging>jar</packaging>
+    <dependencies>
+        <!-- Contracts -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-agent-spec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-mcp-spec</artifactId>
+        </dependency>
+        <!-- Tenant context + shared web concerns -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-common</artifactId>
+        </dependency>
+        <!-- Usage/cost accounting + gateway access -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-core-ai-client</artifactId>
+        </dependency>
+        <!-- Approval store persistence (ProposedAction -> ArcadeDB) -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-core-arcadedb</artifactId>
+        </dependency>
+        <!-- Spring Boot: autoconfig + web (the /invoke endpoint + RestClient to the registry) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- langchain4j planner loop + MCP client (design §3, §5.3) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-mcp</artifactId>
+        </dependency>
+        <!-- Default planner model transport (open item §15: production routes via nl-query
+             agent-planning usage type; a local tool-calling model is the default). -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Log4j2 API only. log4j-core is NOT declared here: a library must not
+             pick the implementation for its consumers. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+        <!-- Observation API for per-run / per-tool spans (design §16 tracing → OTLP/Jaeger via
+             eip-common). Version managed by the Spring Boot BOM; the ObservationRegistry bean is
+             provided by the agent app's actuator/micrometer autoconfig (NOOP when absent). -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Library module: the exclusions above keep Logback from leaking into the services
+             (they all run Log4j2), but the binding itself is test-scope only so consumers stay
+             free to choose one — a library must not force a logging implementation on them. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <!-- Library module: skip the inherited Spring Boot repackage goal. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

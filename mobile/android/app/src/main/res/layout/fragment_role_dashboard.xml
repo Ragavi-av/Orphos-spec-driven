@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Data-driven role dashboard (e.g. CHRO "People"). Only the chrome lives here; tabs,
+     quick actions and cards are built in RoleDashboardFragment from RoleDashboard. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rd_scroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="52dp"
+        android:paddingBottom="120dp">
+
+        <!-- Header: back, title, shared status dot + bell -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/rd_back"
+                android:layout_width="26dp" android:layout_height="26dp"
+                android:clickable="true" android:focusable="true"
+                android:contentDescription="@string/nav_home"
+                android:src="@drawable/ic_arrow_back" app:tint="@color/text" />
+            <TextView
+                android:id="@+id/rd_title"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:layout_marginStart="14dp"
+                android:textColor="@color/text" android:textSize="24sp" android:textStyle="bold" />
+            <!-- Shared header (see HeaderActions): availability dot, bell -->
+            <FrameLayout android:id="@+id/btn_status" android:layout_width="46dp" android:layout_height="38dp"
+                android:background="@drawable/card_bg_2" android:clickable="true" android:focusable="true">
+                <View android:id="@+id/status_dot" android:layout_width="11dp" android:layout_height="11dp" android:layout_gravity="center"
+                    android:background="@drawable/circle_icon" android:backgroundTint="@color/status_busy" />
+            </FrameLayout>
+            <FrameLayout android:id="@+id/btn_bell" android:layout_width="46dp" android:layout_height="38dp"
+                android:layout_marginStart="10dp" android:background="@drawable/card_bg_2"
+                android:clickable="true" android:focusable="true">
+                <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center"
+                    android:src="@drawable/ic_bell" app:tint="@color/text" />
+                <View android:id="@+id/bell_badge" android:visibility="gone"
+                    android:layout_width="7dp" android:layout_height="7dp" android:layout_gravity="top|end"
+                    android:layout_marginTop="9dp" android:layout_marginEnd="12dp"
+                    android:background="@drawable/circle_icon" android:backgroundTint="@color/red" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Search (→ Ask Orphos) -->
+        <LinearLayout
+            android:id="@+id/rd_search"
+            android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="14dp"
+            android:background="@drawable/bg_segment" android:clickable="true" android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" android:paddingHorizontal="14dp">
+            <ImageView android:layout_width="18dp" android:layout_height="18dp"
+                android:src="@drawable/ic_search" app:tint="@color/text_muted" />
+            <EditText android:id="@+id/search_input" style="@style/SearchInput"
+                android:layout_marginStart="10dp" />
+            <ImageView android:id="@+id/search_orb" style="@style/SearchOrb"
+                android:layout_width="22dp" android:layout_height="22dp" />
+        </LinearLayout>
+
+        <!-- Section tabs (scrolling pills) -->
+        <HorizontalScrollView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:scrollbars="none">
+            <LinearLayout
+                android:id="@+id/rd_tabs"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/rd_status"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:gravity="center"
+            android:text="@string/loading" android:textColor="@color/text_muted" android:textSize="13sp" />
+
+        <LinearLayout
+            android:id="@+id/rd_content"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp" android:orientation="vertical" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

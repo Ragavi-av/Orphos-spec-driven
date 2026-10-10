@@ -1,0 +1,118 @@
+{
+  "_comment": "Demo-mode CEO board, in the exact /api/mobile/metrics response shape. Widgets are the CEO persona's watched metrics (scripts/zenitus-governance-profile.json, per-ceo) in board order, so demo renders through the same parser and WidgetScreens builder as connected mode.",
+  "widgets": [
+    {
+      "id": "rag-red", "label": "Projects at Risk", "area": "Projects & Governance",
+      "description": "Projects flagged red in RAG status", "source": "Project RAG",
+      "available": true, "connected": true, "permitted": true,
+      "value": 2, "unit": "COUNT", "targetValue": 0, "ragStatus": "AMBER",
+      "period": "FY2027 Q3", "periodStart": "2026-10-01T00:00:00Z", "periodEnd": "2026-12-31T23:59:59Z"
+    },
+    {
+      "id": "pending-decisions", "label": "Pending Decisions", "area": "Projects & Governance",
+      "description": "Decisions awaiting executive approval", "source": "Decision Log",
+      "available": true, "connected": true, "permitted": true,
+      "value": 6, "unit": "COUNT", "subtitle": "Awaiting your approval"
+    },
+    {
+      "id": "budget-variance", "label": "Budget Variance", "area": "Finance",
+      "description": "Cost centres running over or under budget", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 1840000, "unit": "CURRENCY", "currency": "INR", "targetValue": 1500000, "ragStatus": "AMBER",
+      "period": "FY2027 Q2", "periodStart": "2026-07-01T00:00:00Z", "periodEnd": "2026-09-30T23:59:59Z"
+    },
+    {
+      "id": "net-cashflow", "label": "Net Cash Flow", "area": "Finance",
+      "description": "Net cash position for the current fiscal year", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 31200000, "unit": "CURRENCY", "currency": "INR", "targetValue": 40000000, "ragStatus": "AMBER",
+      "period": "FY2027", "periodStart": "2026-04-01T00:00:00Z", "periodEnd": "2027-03-31T23:59:59Z"
+    },
+    {
+      "id": "revenue-arr", "label": "Recurring Revenue", "area": "Commercial",
+      "description": "Contracted ARR across active clients", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 146000000, "unit": "CURRENCY", "currency": "INR", "targetValue": 200000000, "ragStatus": "GREEN",
+      "period": "FY2027", "periodStart": "2026-04-01T00:00:00Z", "periodEnd": "2027-03-31T23:59:59Z"
+    },
+    {
+      "id": "pipeline-value", "label": "Pipeline Value", "area": "Commercial",
+      "description": "Weighted open pipeline for the current quarter", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 70000000, "unit": "CURRENCY", "currency": "INR", "targetValue": 90000000, "ragStatus": "AMBER",
+      "period": "FY2027 Q3", "periodStart": "2026-10-01T00:00:00Z", "periodEnd": "2026-12-31T23:59:59Z"
+    },
+    {
+      "id": "risk-exposure", "label": "Risk Exposure", "area": "Risk & Compliance",
+      "description": "Total residual financial exposure on the risk register", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 23500000, "unit": "CURRENCY", "currency": "INR", "targetValue": 15000000, "ragStatus": "RED",
+      "period": "FY2027 Q2", "periodStart": "2026-07-01T00:00:00Z", "periodEnd": "2026-09-30T23:59:59Z"
+    },
+    {
+      "id": "objective-progress", "label": "Objective Progress", "area": "Projects & Governance",
+      "description": "Key results at or ahead of target", "source": "Enterprise Ontology",
+      "available": true, "connected": true, "permitted": true,
+      "value": 64.0, "unit": "PERCENT", "targetValue": 75.0, "ragStatus": "AMBER",
+      "period": "FY2027 Q2", "periodStart": "2026-07-01T00:00:00Z", "periodEnd": "2026-09-30T23:59:59Z"
+    }
+  ],
+  "details": {
+    "okrs": [
+      { "name": "Grow recurring revenue to ₹20 Cr", "progress": 73, "keyResults": [
+        { "name": "Close ₹5 Cr new ARR", "progress": 68 },
+        { "name": "Net revenue retention above 110%", "progress": 82 },
+        { "name": "Renew all strategic accounts", "progress": 70 }
+      ] },
+      { "name": "Deliver the enterprise platform roadmap", "progress": 52, "keyResults": [
+        { "name": "Ship AI Advisors v2", "progress": 45 },
+        { "name": "Complete the data-centre vendor migration", "progress": 60 }
+      ] },
+      { "name": "Keep spend within plan", "progress": 38, "keyResults": [
+        { "name": "Hold budget variance under ₹15 L", "progress": 30 },
+        { "name": "Net cash flow of ₹4 Cr", "progress": 46 }
+      ] }
+    ],
+    "risks": [
+      { "name": "Strategic renewal pricing dispute", "riskCategory": "COMMERCIAL", "riskStatus": "OPEN",
+        "residualSeverity": 16, "exposureAmount": 9500000, "currency": "INR", "remediationDueDate": "2026-10-09" },
+      { "name": "Data-centre vendor migration overrun", "riskCategory": "OPERATIONAL", "riskStatus": "MITIGATING",
+        "residualSeverity": 12, "exposureAmount": 7200000, "currency": "INR", "remediationDueDate": "2026-11-15" },
+      { "name": "Finance team attrition", "riskCategory": "PEOPLE", "riskStatus": "OPEN",
+        "residualSeverity": 10, "exposureAmount": 4300000, "currency": "INR", "remediationDueDate": "2026-10-31" },
+      { "name": "Data-protection audit findings", "riskCategory": "COMPLIANCE", "riskStatus": "MITIGATING",
+        "residualSeverity": 6, "exposureAmount": 2500000, "currency": "INR", "remediationDueDate": "2026-12-15" }
+    ],
+    "pipeline": [
+      { "name": "Customer Alpha renewal", "stage": "NEGOTIATION", "probability": 0.85,
+        "dealValue": 32000000, "weightedValue": 27200000, "currency": "INR", "expectedCloseDate": "2026-10-10" },
+      { "name": "Customer Delta expansion", "stage": "PROPOSAL", "probability": 0.6,
+        "dealValue": 25000000, "weightedValue": 15000000, "currency": "INR", "expectedCloseDate": "2026-11-20" },
+      { "name": "Customer Beta platform deal", "stage": "QUALIFICATION", "probability": 0.35,
+        "dealValue": 48000000, "weightedValue": 16800000, "currency": "INR", "expectedCloseDate": "2026-12-15" },
+      { "name": "Customer Gamma pilot", "stage": "DISCOVERY", "probability": 0.2,
+        "dealValue": 55000000, "weightedValue": 11000000, "currency": "INR", "expectedCloseDate": "2026-12-30" }
+    ],
+    "cashflow": {
+      "currency": "INR", "fiscalYear": "FY2027",
+      "months": [
+        { "monthName": "Apr", "fiscalYear": "FY2027", "inflow": 21500000, "outflow": 17800000, "nett": 3700000 },
+        { "monthName": "May", "fiscalYear": "FY2027", "inflow": 23000000, "outflow": 18200000, "nett": 4800000 },
+        { "monthName": "Jun", "fiscalYear": "FY2027", "inflow": 26400000, "outflow": 19100000, "nett": 7300000 },
+        { "monthName": "Jul", "fiscalYear": "FY2027", "inflow": 22100000, "outflow": 20600000, "nett": 1500000 },
+        { "monthName": "Aug", "fiscalYear": "FY2027", "inflow": 27900000, "outflow": 20300000, "nett": 7600000 },
+        { "monthName": "Sep", "fiscalYear": "FY2027", "inflow": 28600000, "outflow": 22300000, "nett": 6300000 }
+      ]
+    },
+    "definitions": {
+      "rag-red":            { "metricKey": "project.rag.red",       "aggregation": "LAST", "higherIsBetter": false },
+      "pending-decisions":  { "metricKey": "decision.pending",      "aggregation": "COUNT", "higherIsBetter": false },
+      "budget-variance":    { "metricKey": "budget.variance",       "aggregation": "SUM",  "higherIsBetter": false },
+      "net-cashflow":       { "metricKey": "cash.net",              "aggregation": "SUM",  "higherIsBetter": true },
+      "revenue-arr":        { "metricKey": "revenue.arr",           "aggregation": "LAST", "higherIsBetter": true },
+      "pipeline-value":     { "metricKey": "pipeline.weighted",     "aggregation": "SUM",  "higherIsBetter": true },
+      "risk-exposure":      { "metricKey": "risk.exposure.residual","aggregation": "SUM",  "higherIsBetter": false },
+      "objective-progress": { "metricKey": "objective.kr.on_track", "aggregation": "AVG",  "higherIsBetter": true }
+    }
+  }
+}

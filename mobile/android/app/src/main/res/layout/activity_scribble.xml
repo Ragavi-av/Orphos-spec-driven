@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen"
+    android:orientation="vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingTop="52dp"
+    android:paddingBottom="16dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/scribble_back"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/text" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/scribble_title"
+                android:textColor="@color/text"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:textColor="@color/green"
+                android:textSize="11sp" />
+        </LinearLayout>
+        <!-- Shared header (see HeaderActions): availability dot, bell -->
+        <FrameLayout
+            android:id="@+id/btn_status"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <View
+                android:id="@+id/status_dot"
+                android:layout_width="11dp"
+                android:layout_height="11dp"
+                android:layout_gravity="center"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/status_busy" />
+        </FrameLayout>
+        <FrameLayout
+            android:id="@+id/btn_bell"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_bell"
+                app:tint="@color/text" />
+            <View
+                android:id="@+id/bell_badge"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:visibility="gone"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="9dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/red" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Tool row -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:scrollbars="none">
+        <LinearLayout
+            android:id="@+id/tool_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <LinearLayout android:id="@+id/tool_pen" style="@style/ScribbleTool">
+                <ImageView style="@style/ScribbleToolIcon" android:src="@drawable/ic_pen" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_pen" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/tool_highlighter" style="@style/ScribbleTool">
+                <ImageView style="@style/ScribbleToolIcon" android:src="@drawable/ic_highlighter" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_highlighter" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/tool_eraser" style="@style/ScribbleTool">
+                <ImageView style="@style/ScribbleToolIcon" android:src="@drawable/ic_eraser" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_eraser" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/tool_shapes" style="@style/ScribbleTool">
+                <ImageView style="@style/ScribbleToolIcon" android:src="@drawable/ic_shapes" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_shapes" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/tool_lasso" style="@style/ScribbleTool">
+                <ImageView style="@style/ScribbleToolIcon" android:src="@drawable/ic_lasso" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_lasso" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/tool_color" style="@style/ScribbleTool">
+                <View
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:background="@drawable/circle_icon"
+                    android:backgroundTint="@color/text" />
+                <TextView style="@style/ScribbleToolLabel" android:text="@string/tool_color" />
+                <View style="@style/ScribbleToolUnderline" />
+            </LinearLayout>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:background="@color/border_soft" />
+
+    <!-- Canvas -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="14dp">
+        <com.orphos.mobile.ui.scribbles.DrawingView
+            android:id="@+id/drawing"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_canvas" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:visibility="gone"
+            android:background="@drawable/card_bg_2"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+            <ImageView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_search"
+                app:tint="@color/text_secondary" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Bottom actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/scribble_undo"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:contentDescription="@string/scribble_undo"
+            android:focusable="true"
+            android:padding="11dp"
+            android:src="@drawable/ic_undo"
+            app:tint="@color/text" />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+        <ImageView
+            android:id="@+id/scribble_share"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="11dp"
+            android:src="@drawable/ic_share"
+            app:tint="@color/text" />
+        <TextView
+            android:id="@+id/scribble_more"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="•••"
+            android:textColor="@color/text"
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/scribble_done"
+            android:layout_width="wrap_content"
+            android:layout_height="42dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/bg_btn_primary_sm"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:paddingHorizontal="22dp"
+            android:text="@string/scribble_done"
+            android:textColor="@color/on_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

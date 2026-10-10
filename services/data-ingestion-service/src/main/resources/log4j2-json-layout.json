@@ -1,0 +1,89 @@
+{
+  "timestamp": {
+    "$resolver": "timestamp",
+    "pattern": {
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+    }
+  },
+  "logType": {
+    "$resolver": "level",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "message",
+    "stringified": true
+  },
+  "applicationName": {
+    "$resolver": "pattern",
+    "pattern": "${APPLICATION_NAME}",
+    "stackTraceEnabled": false
+  },
+  "serviceName": {
+    "$resolver": "pattern",
+    "pattern": "${SERVICE_NAME}",
+    "stackTraceEnabled": false
+  },
+  "hostIpAddress": {
+    "$resolver": "pattern",
+    "pattern": "${sys:HOST_IP:-unknown}",
+    "stackTraceEnabled": false
+  },
+  "podName": {
+    "$resolver": "pattern",
+    "pattern": "${env:POD_NAME:-}",
+    "stackTraceEnabled": false
+  },
+  "podNamespace": {
+    "$resolver": "pattern",
+    "pattern": "${env:POD_NAMESPACE:-}",
+    "stackTraceEnabled": false
+  },
+  "nodeName": {
+    "$resolver": "pattern",
+    "pattern": "${env:NODE_NAME:-}",
+    "stackTraceEnabled": false
+  },
+  "clientIpAddress": {
+    "$resolver": "mdc",
+    "key": "clientIp"
+  },
+  "tenantId": {
+    "$resolver": "mdc",
+    "key": "tenantId"
+  },
+  "traceId": {
+    "$resolver": "mdc",
+    "key": "traceId"
+  },
+  "spanId": {
+    "$resolver": "mdc",
+    "key": "spanId"
+  },
+  "className": {
+    "$resolver": "source",
+    "field": "className"
+  },
+  "methodName": {
+    "$resolver": "source",
+    "field": "methodName"
+  },
+  "lineNumber": {
+    "$resolver": "source",
+    "field": "lineNumber"
+  },
+  "errorClassName": {
+    "$resolver": "exception",
+    "field": "className"
+  },
+  "errorMessage": {
+    "$resolver": "exception",
+    "field": "message"
+  },
+  "stackTrace": {
+    "$resolver": "exception",
+    "field": "stackTrace",
+    "stackTrace": {
+      "stringified": true
+    }
+  }
+}

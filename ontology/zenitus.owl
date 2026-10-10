@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!-- Zenitus tenant ontology — HR + Finance domain.
+     Kept separate from eip-core.owl (IT-ops domain) because the Zenitus tenant
+     runs in DEDICATED isolation mode with its own ArcadeDB database and Fuseki
+     dataset. This is the TBox only (classes + object properties); instance data
+     (employees, monthly cash flow) lives in ArcadeDB and carries no PII here. -->
+<rdf:RDF xmlns="https://orphos.io/ontology/zenitus#"
+     xml:base="https://orphos.io/ontology/zenitus"
+     xmlns:zen="https://orphos.io/ontology/zenitus#"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+
+    <owl:Ontology rdf:about="https://orphos.io/ontology/zenitus"/>
+
+    <!-- Classes — each carries bilingual (en + ja) rdfs:label, matching the
+         eip-core.owl convention. Consumers select a language with SPARQL, e.g.
+         FILTER(langMatches(lang(?label), "ja")). -->
+
+    <!-- ── HR domain ── -->
+    <owl:Class rdf:about="#Employee">
+        <rdfs:label xml:lang="en">Employee</rdfs:label>
+        <rdfs:label xml:lang="ja">従業員</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#Department">
+        <rdfs:label xml:lang="en">Department</rdfs:label>
+        <rdfs:label xml:lang="ja">部門</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#Project">
+        <rdfs:label xml:lang="en">Project</rdfs:label>
+        <rdfs:label xml:lang="ja">プロジェクト</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#Designation">
+        <rdfs:label xml:lang="en">Designation</rdfs:label>
+        <rdfs:label xml:lang="ja">役職</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#Location">
+        <rdfs:label xml:lang="en">Location</rdfs:label>
+        <rdfs:label xml:lang="ja">勤務地</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#EmploymentType">
+        <rdfs:label xml:lang="en">Employment Type</rdfs:label>
+        <rdfs:label xml:lang="ja">雇用形態</rdfs:label>
+    </owl:Class>
+
+    <!-- ── Finance domain ── -->
+    <owl:Class rdf:about="#FiscalYear">
+        <rdfs:label xml:lang="en">Fiscal Year</rdfs:label>
+        <rdfs:label xml:lang="ja">会計年度</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#CashFlowMonth">
+        <rdfs:label xml:lang="en">Monthly Cash Flow</rdfs:label>
+        <rdfs:label xml:lang="ja">月次キャッシュフロー</rdfs:label>
+    </owl:Class>
+
+    <!-- Object Properties -->
+    <owl:ObjectProperty rdf:about="#worksInDepartment">
+        <rdfs:label xml:lang="en">works in department</rdfs:label>
+        <rdfs:label xml:lang="ja">部門に所属する</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#Department"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#assignedToProject">
+        <rdfs:label xml:lang="en">assigned to project</rdfs:label>
+        <rdfs:label xml:lang="ja">プロジェクトに参画する</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#Project"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#reportsTo">
+        <rdfs:label xml:lang="en">reports to</rdfs:label>
+        <rdfs:label xml:lang="ja">上長</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#Employee"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#hasDesignation">
+        <rdfs:label xml:lang="en">has designation</rdfs:label>
+        <rdfs:label xml:lang="ja">役職を持つ</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#Designation"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#basedAt">
+        <rdfs:label xml:lang="en">based at</rdfs:label>
+        <rdfs:label xml:lang="ja">勤務地</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#Location"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#hasEmploymentType">
+        <rdfs:label xml:lang="en">has employment type</rdfs:label>
+        <rdfs:label xml:lang="ja">雇用形態を持つ</rdfs:label>
+        <rdfs:domain rdf:resource="#Employee"/>
+        <rdfs:range  rdf:resource="#EmploymentType"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#inFiscalYear">
+        <rdfs:label xml:lang="en">in fiscal year</rdfs:label>
+        <rdfs:label xml:lang="ja">会計年度に属する</rdfs:label>
+        <rdfs:domain rdf:resource="#CashFlowMonth"/>
+        <rdfs:range  rdf:resource="#FiscalYear"/>
+    </owl:ObjectProperty>
+
+</rdf:RDF>

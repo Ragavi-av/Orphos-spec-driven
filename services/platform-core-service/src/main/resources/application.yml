@@ -1,0 +1,144 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: platform-core-service
+  # The neo4j-java-driver is on the classpath ONLY so DbConnectionValidator can
+  # test operator-defined external NEO4J connections on demand (it builds its own
+  # Driver via GraphDatabase.driver(...)). This service does NOT use Neo4j as a
+  # datastore. Left auto-configured, Spring Boot creates an idle Driver bean at
+  # bolt://localhost:7687 and a Neo4j health indicator that probes it forever —
+  # which pins /actuator/health to DOWN (503) and makes the container "unhealthy",
+  # so every dependent (shell, registry, admin-console) fails to start. Exclude it.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.neo4j.Neo4jAutoConfiguration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs}
+
+# ArcadeDB HTTP API
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user: ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# OpenBao (Vault-compatible) secret backend.
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # Needed by KeycloakProvisioningClient to call the Keycloak Admin REST API
+    # when provisioning a new tenant realm. Seeded by infisical-seed container
+    # at infra startup (see docker-compose.infra.yml).
+    - KEYCLOAK_ADMIN_PASSWORD=eip/keycloak-admin#password
+    # Needed by FusekiProvisioningClient to create per-tenant Fuseki datasets
+    # for DEDICATED-mode tenants.
+    - FUSEKI_ADMIN_PASSWORD=eip/fuseki-admin#password
+    # INBOUND side of the /api/internal/ shared secret. Pairs with the same
+    # token bound on every non-platform-core service as
+    # EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN. Blank in dev → permit-all.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+# Fuseki SPARQL store. Per-tenant dataset for DEDICATED-mode tenants.
+fuseki:
+  url:      ${FUSEKI_URL:http://eip-fuseki:3030}
+  user:     ${FUSEKI_USER:admin}
+  password: ${FUSEKI_ADMIN_PASSWORD:}
+
+# Runtime knobs (single `admin:` block - YAML disallows duplicate top-level keys)
+admin:
+  secrets:
+    namespace: admin
+  auth:
+    bcrypt-strength: 12
+    lockout:
+      max-failed-attempts: 5
+      window-minutes: 15
+      lock-minutes: 30
+
+eip:
+  logs:
+    url: ${EIP_LOGS_URL:http://eip-victoria-logs:9428}
+  security:
+    internal-service-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    platform-issuer: ${KEYCLOAK_PLATFORM_ISSUER:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+  cors:
+    allowed-origins:
+      - http://localhost:3001
+      - http://localhost:5173   # Vite dev server
+  tenant:
+    demo:
+      id: ${EIP_TENANT_DEMO_ID:127a2ec3-cb19-365e-9ebe-c9c19ed5e5d8}
+      domain: ${EIP_TENANT_DEMO_DOMAIN:localhost}
+      display-name: ${EIP_TENANT_DEMO_DISPLAY_NAME:Demo Tenant}
+      realm: ${EIP_TENANT_DEMO_REALM:${KEYCLOAK_REALM:eip}}
+      database: ${EIP_TENANT_DEMO_DATABASE:orphos}
+      bootstrap-enabled: ${EIP_TENANT_DEMO_BOOTSTRAP_ENABLED:true}
+      # When false the demo tenant is still created but starts CLEAN (no sample
+      # data / no tenantId backfill / no Fuseki graph migration) — the setup
+      # wizard's "load demo data = off" path. Default true preserves behaviour.
+      seed-sample-data: ${EIP_TENANT_SEED_SAMPLE_DATA:true}
+      # First-tenant administrator, from the setup wizard (step 6). When set,
+      # DemoTenantBootstrap seeds this user with the 'admin' role in the tenant
+      # realm and PlatformAdminBootstrap mirrors it with 'platform_admin' in the
+      # 'platform' realm — one identity that is both tenant admin and platform
+      # admin. Blank → the bootstrap-grade admin/admin and pa/pa users are used.
+      admin-email: ${EIP_TENANT_ADMIN_EMAIL:}
+      admin-password: ${EIP_TENANT_ADMIN_PASSWORD:}
+    shared-database: ${EIP_TENANT_SHARED_DATABASE:orphos}
+    realm-prefix: ${EIP_TENANT_REALM_PREFIX:tenant-}
+  # Cross-tenant platform realm (holds the platform_admin role + platform admin
+  # user). Mirrors config/keycloak/platform-realm.json's realm name.
+  platform:
+    realm: ${EIP_PLATFORM_REALM:platform}
+  rate-limit:
+    enabled: true
+    rules:
+      - path-prefix: /api/auth/login
+        capacity: 10
+        refill-period: PT1M
+      - path-prefix: /api/auth/register
+        capacity: 5
+        refill-period: PT1M
+      - path-prefix: /api/auth/forgot
+        capacity: 5
+        refill-period: PT5M
+      - path-prefix: /api/admin/**
+        capacity: 300
+        refill-period: PT1M
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    # Belt-and-suspenders: even if a Neo4j Driver bean is created some other way,
+    # this service never uses Neo4j as a datastore, so its health must not gate
+    # /actuator/health (see spring.autoconfigure.exclude above).
+    neo4j:
+      enabled: false
+
+logging:
+  level:
+    io.orphos.eip.admin: INFO
+    org.springframework.security: INFO

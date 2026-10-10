@@ -1,0 +1,104 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: decision-log-service
+  threads:
+    virtual:
+      enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# Embeddings run on the hi-memory Ollama container (bge-m3, 1024-dim,
+# multilingual) — the shared platform embedding space (see doc-ingest).
+ollama:
+  url:         ${OLLAMA_URL:http://eip-ollama:11434}
+  embed-url:   ${OLLAMA_EMBED_URL:http://eip-ollama-hi:11434}
+  embed-model: ${OLLAMA_EMBED_MODEL:bge-m3}
+
+qdrant:
+  host:      ${QDRANT_HOST:eip-qdrant}
+  port:      ${QDRANT_PORT:6333}
+  grpc-port: ${QDRANT_GRPC_PORT:6334}
+
+decision-log:
+  qdrant:
+    collection: ${DECISION_QDRANT_COLLECTION:decision_log_decisions}
+  sync:
+    # RAG source sweep (MailInsight + DocIngestRecord watermarks) — 5 min
+    # satisfies the Req 2.5 synchronization bound.
+    enabled: ${DECISION_SYNC_ENABLED:true}
+    interval-ms: ${DECISION_SYNC_INTERVAL_MS:300000}
+    initial-delay-ms: ${DECISION_SYNC_INITIAL_DELAY_MS:90000}
+    batch-size: ${DECISION_SYNC_BATCH_SIZE:200}
+  detection:
+    llm-enabled: ${DECISION_DETECTION_LLM_ENABLED:true}
+    min-confidence: ${DECISION_DETECTION_MIN_CONFIDENCE:0.5}
+  escalation:
+    enabled: ${DECISION_ESCALATION_ENABLED:true}
+    interval-ms: ${DECISION_ESCALATION_INTERVAL_MS:300000}
+  search:
+    max-results: ${DECISION_SEARCH_MAX_RESULTS:50}
+    semantic-min-score: ${DECISION_SEARCH_MIN_SCORE:0.45}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against admin-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # Same shared secret, used for nl-query internal completions (AI detection,
+    # impact prediction, annotations) and event-bus publishing.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# admin-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+eip:
+  # LLM completions go through nl-query-service's internal API so tenant
+  # provider/model assignments (usage types decision-detection /
+  # decision-impact / decision-annotation) are honored.
+  ai:
+    nl-query:
+      base-url: ${NL_QUERY_URL:http://eip-nl-query:8082}
+      internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

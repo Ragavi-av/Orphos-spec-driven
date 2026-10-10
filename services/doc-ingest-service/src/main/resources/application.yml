@@ -1,0 +1,157 @@
+server:
+  port: 8091
+  tomcat:
+    max-http-form-post-size: 512MB
+
+spring:
+  application:
+    name: doc-ingest-service
+  servlet:
+    multipart:
+      max-file-size: 256MB
+      max-request-size: 512MB
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs}
+
+# Ollama — use the existing eip-ollama containers (same as nl-query).
+# Embeddings run on the hi-memory container (eip-ollama-hi), where the embedding
+# model lives (see docker-compose.ai.yml + start.sh) — NOT on the primary
+# container, which keeps at most one chat model resident.
+# bge-m3 is multilingual (incl. Japanese), 1024-dim — replaces nomic-embed-text
+# (English-centric, 768-dim) so JA and EN documents share one retrievable space.
+ollama:
+  url: ${OLLAMA_URL:http://eip-ollama:11434}
+  embed-url: ${OLLAMA_EMBED_URL:http://eip-ollama-hi:11434}
+  embed-model: ${OLLAMA_EMBED_MODEL:bge-m3}
+
+# ArcadeDB — shared orphos database (DocIngestRecord + DocSearchHistory types).
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# Qdrant — existing eip-qdrant container (same as nl-query).
+qdrant:
+  host: ${QDRANT_HOST:eip-qdrant}
+  port: ${QDRANT_PORT:6333}
+  grpc-port: ${QDRANT_GRPC_PORT:6334}
+
+# OpenBao (Vault-compatible) secret backend.
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+eip:
+  security:
+    # Poll admin-service for the live tenant realm issuer list so tenant-specific
+    # realm JWTs (iss = http://localhost:8443/realms/tenant-<uuid>) are accepted.
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+  cors:
+    allowed-origins:
+      - http://localhost:3001
+      - http://localhost:5173
+
+# Ingestion pipeline config
+doc-ingest:
+  chunking-strategy: ${DOC_INGEST_CHUNKING_STRATEGY:semantic}
+  # Server-side URL ingestion (POST /api/doc-ingest/url). Guarded against SSRF:
+  # UrlEgressGuard blocks loopback/link-local (incl. 169.254 metadata)/private/
+  # unique-local ranges on every redirect hop. verify-tls defaults ON.
+  url:
+    verify-tls: ${DOC_INGEST_URL_VERIFY_TLS:true}
+    # Optional hard allowlist of egress hosts (comma-separated; subdomains
+    # included). Empty = any PUBLIC host allowed (private ranges still blocked).
+    # Set e.g. "example.gov.in,docs.example.com" to lock egress down.
+    allowed-hosts: ${DOC_INGEST_URL_ALLOWED_HOSTS:}
+  # Docling sidecar parsing (layout-aware + Japanese OCR). When enabled, files
+  # whose extension is in `formats` are parsed via docling-serve; everything else
+  # (and any Docling failure) falls back to Tika. ocr-lang uses the OCR engine's
+  # own code — RapidOCR: "japan"/"en"; Tesseract: "jpn"/"eng"; EasyOCR: "ja"/"en".
+  docling:
+    enabled: ${DOC_INGEST_DOCLING_ENABLED:false}
+    url: ${DOC_INGEST_DOCLING_URL:http://eip-docling:5001}
+    formats: ${DOC_INGEST_DOCLING_FORMATS:pdf,png,jpg,jpeg,tif,tiff}
+    ocr: ${DOC_INGEST_DOCLING_OCR:true}
+    ocr-engine: ${DOC_INGEST_DOCLING_OCR_ENGINE:rapidocr}
+    ocr-lang: ${DOC_INGEST_DOCLING_OCR_LANG:japan}
+    timeout-seconds: ${DOC_INGEST_DOCLING_TIMEOUT:180}
+  qdrant:
+    collection: ${DOC_INGEST_QDRANT_COLLECTION:doc_ingest_documents}
+  # Retrieval relevance. A chunk is returned when it is a solid semantic match
+  # (cosine >= min-score) OR a literal keyword match on its title / file name /
+  # section heading / body — dense similarity alone cannot resolve a short,
+  # high-information query such as a policy acronym, and a single global cosine
+  # floor cannot separate "correct but terse" from "generic and irrelevant".
+  #   min-score          strict floor for admission on semantic similarity alone.
+  #                      Measured on bge-m3: an on-topic multi-word query peaks
+  #                      near 0.61, a correct one-word query near 0.31.
+  #   recall-min-score   wide floor handed to Qdrant, so a lexically exact match
+  #                      still reaches the keyword stage. Lower = better recall
+  #                      on terse queries, larger pool to score.
+  #   lexical-coverage   fraction of the query's distinguishing terms that must
+  #                      appear literally for the keyword path to admit a chunk.
+  #   max-doc-freq-ratio a term in more than this share of the candidate pool is
+  #                      too common to distinguish documents and casts no vote —
+  #                      this is what stops "policy" matching every policy.
+  search:
+    min-score:          ${DOC_INGEST_SEARCH_MIN_SCORE:0.45}
+    recall-min-score:   ${DOC_INGEST_SEARCH_RECALL_MIN_SCORE:0.25}
+    lexical-coverage:   ${DOC_INGEST_SEARCH_LEXICAL_COVERAGE:0.5}
+    max-doc-freq-ratio: ${DOC_INGEST_SEARCH_MAX_DOC_FREQ_RATIO:0.8}
+  storage:
+    backend: ${DOC_INGEST_STORAGE_BACKEND:LOCAL}
+    local:
+      base-dir: ${DOC_INGEST_STORAGE_DIR:/data/doc-ingest/files}
+      encrypt: ${DOC_INGEST_STORAGE_ENCRYPT:false}
+      encryption-key-base64: ${DOC_INGEST_ENCRYPTION_KEY:}
+  audit:
+    log-path: ${DOC_INGEST_AUDIT_LOG:/data/doc-ingest/audit.jsonl}
+  # Cross-encoder re-ranking (search setting "Cross-encoder re-ranking"). Point at
+  # a HuggingFace TEI reranker (e.g. BAAI/bge-reranker-base exposing /rerank) to
+  # activate it. Blank = re-ranking is a safe no-op that preserves first-stage order.
+  rerank:
+    url: ${DOC_INGEST_RERANK_URL:}
+    timeout-ms: ${DOC_INGEST_RERANK_TIMEOUT_MS:8000}
+  # nl-query reuse for AI metadata enrichment (per-tenant opt-in via the
+  # Document AI admin tab; best-effort — ingestion works fully without it).
+  llm:
+    enabled: ${DOC_INGEST_LLM_ENABLED:true}
+    nl-query-url: ${NL_QUERY_URL:http://eip-nl-query:8082}
+    internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    timeout-seconds: ${DOC_INGEST_LLM_TIMEOUT:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    io.orphos.eip.docingest: INFO
+    org.apache.tika: WARN
+    org.apache.pdfbox: WARN

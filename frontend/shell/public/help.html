@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Orphos EIP — Dashboard Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f0f2f5;color:#0f172a;font-size:14px;line-height:1.5}
+
+/* ── Page chrome ── */
+.page-header{background:#1e3a5f;color:#fff;padding:24px 48px;display:flex;align-items:center;justify-content:space-between}
+.page-header-brand{display:flex;flex-direction:column;gap:4px}
+.page-header-brand h1{font-size:24px;font-weight:800;letter-spacing:-0.5px}
+.page-header-brand h1 span{font-size:13px;font-weight:500;opacity:.65;letter-spacing:0.05em;text-transform:uppercase;margin-left:10px;font-weight:400}
+.page-header-brand p{font-size:13px;opacity:.65}
+.badge{background:#2563eb;color:#fff;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;white-space:nowrap}
+.toc{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 48px;display:flex;gap:24px;font-size:13px;flex-wrap:wrap}
+.toc a{color:#2563eb;text-decoration:none;font-weight:500}
+.toc a:hover{text-decoration:underline}
+.content{max-width:1300px;margin:0 auto;padding:40px 32px 80px}
+.section{margin-bottom:56px}
+.section-title{font-size:18px;font-weight:700;margin-bottom:6px;color:#1e3a5f;display:flex;align-items:center;gap:10px}
+.section-title .num{background:#2563eb;color:#fff;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.section-desc{color:#64748b;font-size:13px;margin-bottom:24px;max-width:700px}
+
+/* ── Dashboard mockup shell ── */
+.dash-shell{background:#f5f6fa;border:2px solid #e2e8f0;border-radius:12px;padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+
+/* ── Header bar (new Orphos design) ── */
+.dash-header-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:0 4px}
+.dash-brand{display:flex;align-items:baseline;gap:8px}
+.dash-brand-name{font-size:18px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;line-height:1}
+.dash-brand-tag{font-size:8px;font-weight:500;color:#64748b;letter-spacing:0.06em;text-transform:uppercase;line-height:1}
+.dash-right{display:flex;align-items:center;gap:10px}
+.dash-chips{display:flex;gap:6px;align-items:center}
+.chip{font-size:10px;font-weight:600;padding:3px 9px;border-radius:6px;display:inline-block}
+.chip-red{background:#fee2e2;color:#dc2626}
+.chip-amber{background:#fef3c7;color:#d97706}
+.chip-green{background:#dcfce7;color:#16a34a}
+.chip-gray{background:#f1f5f9;color:#64748b}
+.chip-blue{background:#dbeafe;color:#1d4ed8}
+.dash-divider{width:1px;height:32px;background:#e2e8f0;margin:0 4px}
+.dash-user-block{display:flex;align-items:center;gap:8px}
+.dash-datetime{text-align:right}
+.dash-datetime .ceo-label{font-size:10px;font-weight:700;color:#1e293b;line-height:1.3}
+.dash-datetime .ceo-date{font-size:9px;color:#64748b;line-height:1.3}
+.dash-avatar-wrap{position:relative;display:inline-flex}
+.dash-avatar{width:34px;height:34px;border-radius:50%;background:#dbeafe;border:2px solid #2563eb;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1}
+.dash-bell{position:absolute;top:-4px;right:-8px;width:20px;height:20px;border-radius:50%;background:#16a34a;border:2px solid #f5f6fa;display:flex;align-items:center;justify-content:center;font-size:11px}
+.dash-bell-inner{position:relative;display:flex;align-items:center;justify-content:center}
+.dash-bell-icon{font-size:13px;line-height:1}
+.dash-bell-count{position:absolute;font-size:6px;font-weight:800;color:#f97316;top:50%;left:50%;transform:translate(-50%,-50%)}
+.refresh-btn{font-size:15px;color:#94a3b8;cursor:pointer;background:none;border:none;padding:2px 4px}
+
+/* ── Metrics row ── */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.metric-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px}
+.metric-label{font-size:11px;color:#64748b;font-weight:500;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.metric-value{font-size:26px;font-weight:700;line-height:1.1}
+.metric-sub{font-size:11px;margin-top:4px;display:flex;align-items:center;gap:4px}
+.trend-down{color:#dc2626}
+.trend-up-warn{color:#d97706}
+
+/* ── Tab bar ── */
+.tab-bar{display:flex;border-bottom:2px solid #e5e7eb;margin-bottom:14px}
+.tab{padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:#64748b}
+.tab.active{color:#2563eb;border-bottom-color:#2563eb}
+
+/* ── 3-col grid ── */
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* ── Card ── */
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card-title{font-size:13px;font-weight:600}
+.card-chips{display:flex;gap:4px}
+
+/* ── Priority queue ── */
+.pq-item{display:flex;gap:12px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid #f1f5f9;margin-bottom:12px}
+.pq-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.score-badge{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;border:2px solid}
+.score-crit{border-color:#dc2626;color:#dc2626}
+.score-high{border-color:#d97706;color:#d97706}
+.score-med{border-color:#2563eb;color:#2563eb}
+.score-low{border-color:#16a34a;color:#16a34a}
+.pq-title{font-size:12px;font-weight:600;margin-bottom:3px;line-height:1.3}
+.pq-desc{font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.4}
+.pq-tags{display:flex;gap:4px;flex-wrap:wrap}
+
+/* ── Recent decisions ── */
+.dec-item{padding:10px 0;border-bottom:1px solid #f1f5f9}
+.dec-item:last-child{border-bottom:none}
+.dec-title{font-size:12px;font-weight:600;margin-bottom:3px;line-height:1.3}
+.dec-meta{font-size:10px;color:#64748b;margin-bottom:5px}
+.dec-rationale{font-size:10px;color:#94a3b8;font-style:italic;margin-bottom:5px;line-height:1.4}
+
+/* ── AI copilot ── */
+.ai-answer{background:#eff6ff;border-radius:8px;padding:12px;margin-bottom:10px;min-height:70px}
+.ai-answer p{font-size:12px;color:#1e40af;font-style:italic;line-height:1.6}
+.ai-suggestions{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.ai-input{display:flex;gap:6px}
+.ai-input input{flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;font-family:inherit}
+.ai-send{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer}
+
+/* ── OKR ── */
+.okr-item{margin-bottom:10px}
+.okr-row{display:flex;justify-content:space-between;margin-bottom:3px}
+.okr-name{font-size:11px;color:#64748b}
+.okr-pct{font-size:11px;font-weight:600}
+.progress-bar{height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+
+/* ── Initiative delivery ── */
+.init-item{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.init-name{font-size:11px;width:110px;flex-shrink:0}
+.init-bar-wrap{flex:1;height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.init-fill{height:100%;border-radius:4px}
+
+/* ── Data flow ── */
+.df-domain{margin-bottom:12px}
+.df-header{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.df-dot{width:8px;height:8px;border-radius:50%}
+.df-name{font-size:12px;font-weight:600}
+.df-types{display:flex;gap:4px;flex-wrap:wrap;padding-left:14px}
+.df-type{display:flex;align-items:center;gap:3px;font-size:10px;color:#64748b}
+.df-type-dot{width:5px;height:5px;border-radius:50%;opacity:.5}
+
+/* ── Annotated screenshot wrapper ── */
+.anno-wrap{position:relative;display:inline-block;width:100%}
+.callout{position:absolute;width:24px;height:24px;border-radius:50%;background:#f97316;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:10;cursor:default}
+.callout:hover::after{content:attr(data-tip);position:absolute;left:28px;top:50%;transform:translateY(-50%);background:#1e3a5f;color:#fff;font-size:11px;padding:5px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:20}
+
+/* ── Callout legend ── */
+.legend-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:20px}
+.legend-item{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px}
+.legend-num{width:28px;height:28px;border-radius:50%;background:#f97316;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.legend-body h4{font-size:13px;font-weight:600;margin-bottom:3px}
+.legend-body p{font-size:12px;color:#64748b;line-height:1.4}
+
+/* ── Quick reference table ── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1e3a5f;color:#fff;padding:10px 14px;text-align:left;font-weight:600}
+td{padding:10px 14px;border-bottom:1px solid #e5e7eb}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even) td{background:#f8fafc}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
+
+hr{border:none;border-top:2px solid #e2e8f0;margin:40px 0}
+.tab-screenshot-label{font-size:11px;font-weight:700;color:#fff;background:#2563eb;display:inline-block;padding:4px 14px;border-radius:6px;margin-bottom:10px;letter-spacing:.5px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════ PAGE HEADER -->
+<div class="page-header">
+  <div class="page-header-brand">
+    <h1>Orphos <span>Executive Intelligence Platform</span></h1>
+    <p>Dashboard User Guide · CEO &amp; CTO View · Quick reference for navigating and interpreting the dashboard</p>
+  </div>
+  <span class="badge">v1.1 · 2026-05-08</span>
+</div>
+
+<div class="toc">
+  <span style="font-weight:600;color:#64748b">Jump to:</span>
+  <a href="#overview">Overview</a>
+  <a href="#tab1">Tab 1 — Executive Overview</a>
+  <a href="#tab2">Tab 2 — Strategy &amp; Data</a>
+  <a href="#callouts-tab1">Tab 1 Callouts</a>
+  <a href="#callouts-tab2">Tab 2 Callouts</a>
+  <a href="#quickref">Quick Reference</a>
+</div>
+
+<div class="content">
+
+<!-- ══════════════════════════════════════════ S1: OVERVIEW -->
+<div class="section" id="overview">
+  <div class="section-title"><span class="num">1</span> Dashboard Overview</div>
+  <p class="section-desc">The <strong>Orphos EIP Dashboard</strong> is a CEO/CTO-facing intelligence layer built on a live knowledge graph (ArcadeDB + Apache Fuseki). It surfaces real-time incidents, budget signals, OKR health, and AI-generated insights from a unified ontology across IT Infrastructure, Finance, and Operations domains.</p>
+
+  <div class="dash-shell">
+    <!-- New Orphos header bar -->
+    <div class="dash-header-bar">
+      <div class="dash-brand">
+        <span class="dash-brand-name">Orphos</span>
+        <span class="dash-brand-tag">Executive Intelligence Platform</span>
+      </div>
+      <div class="dash-right">
+        <div class="dash-chips">
+          <span class="chip chip-red">1 critical</span>
+          <span class="chip chip-amber">2 high</span>
+        </div>
+        <button class="refresh-btn" title="Refresh">↻</button>
+        <div class="dash-divider"></div>
+        <div class="dash-user-block">
+          <div class="dash-datetime">
+            <div class="ceo-label">CEO</div>
+            <div class="ceo-date">Thursday, 8 May 2026</div>
+            <div class="ceo-date">23:46</div>
+          </div>
+          <div class="dash-avatar-wrap">
+            <div class="dash-avatar">👤</div>
+            <div class="dash-bell">
+              <div class="dash-bell-inner">
+                <span class="dash-bell-icon">🔔</span>
+                <span class="dash-bell-count">14</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics row -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">System uptime <span class="chip chip-gray">SLAMetric</span></div>
+        <div class="metric-value">97.3%</div>
+        <div class="metric-sub trend-down">▼ 0.4pp below SLA target</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">IT budget consumed <span class="chip chip-gray">Budget</span></div>
+        <div class="metric-value">68%</div>
+        <div class="metric-sub trend-up-warn">▲ +12% vs plan at M3</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Active incidents <span class="chip chip-gray">Incident</span></div>
+        <div class="metric-value">2</div>
+        <div class="metric-sub trend-down">▼ 1 SLA breached</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Projects on RAG red <span class="chip chip-gray">DeliveryRisk</span></div>
+        <div class="metric-value">4 / 18</div>
+        <div class="metric-sub trend-down">▼ 2 escalated this week</div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <div class="tab active">Executive Overview</div>
+      <div class="tab">Strategy &amp; Data</div>
+    </div>
+    <div style="color:#64748b;font-size:12px;text-align:center;padding:20px">← Switch between the two tabs above to access all dashboard panels →</div>
+  </div>
+
+  <div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+    <div style="font-weight:600;font-size:13px;margin-bottom:10px">Persistent elements (visible on both tabs)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:12px">
+      <div><strong>Orphos Header Bar</strong><br/><span style="color:#64748b">Brand name + tagline on the left. Alert severity chips, refresh button, live clock, CEO identity icon with notification bell tracker on the right.</span></div>
+      <div><strong>Metrics Row</strong><br/><span style="color:#64748b">4 KPI cards fed live from ArcadeDB: uptime, budget, incidents, RAG red projects.</span></div>
+      <div><strong>Tab Bar</strong><br/><span style="color:#64748b">Executive Overview (Tab 1) and Strategy &amp; Data (Tab 2). Click to switch views.</span></div>
+    </div>
+  </div>
+</div>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════ S2: TAB 1 -->
+<div class="section" id="tab1">
+  <div class="section-title"><span class="num">2</span> Tab 1 — Executive Overview</div>
+  <p class="section-desc">Three equal-width panels showing the most time-sensitive information a CEO/CTO needs at a glance: what demands attention, what decisions have been made, and an AI query interface for ad-hoc questions.</p>
+
+  <div class="tab-screenshot-label">SCREENSHOT — Tab 1: Executive Overview</div>
+
+  <div class="anno-wrap">
+    <div class="dash-shell">
+      <!-- Header -->
+      <div class="dash-header-bar">
+        <div class="dash-brand">
+          <span class="dash-brand-name">Orphos</span>
+          <span class="dash-brand-tag">Executive Intelligence Platform</span>
+        </div>
+        <div class="dash-right">
+          <div class="dash-chips">
+            <span class="chip chip-red">1 critical</span>
+            <span class="chip chip-amber">2 high</span>
+          </div>
+          <button class="refresh-btn">↻</button>
+          <div class="dash-divider"></div>
+          <div class="dash-user-block">
+            <div class="dash-datetime">
+              <div class="ceo-label">CEO</div>
+              <div class="ceo-date">Thursday, 8 May 2026</div>
+              <div class="ceo-date">23:46</div>
+            </div>
+            <div class="dash-avatar-wrap">
+              <div class="dash-avatar">👤</div>
+              <div class="dash-bell">
+                <div class="dash-bell-inner">
+                  <span class="dash-bell-icon">🔔</span>
+                  <span class="dash-bell-count">14</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">System uptime <span class="chip chip-gray">SLAMetric</span></div>
+          <div class="metric-value">97.3%</div>
+          <div class="metric-sub trend-down">▼ 0.4pp below SLA target</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">IT budget consumed</div>
+          <div class="metric-value">68%</div>
+          <div class="metric-sub trend-up-warn">▲ +12% vs plan at M3</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Active incidents</div>
+          <div class="metric-value">2</div>
+          <div class="metric-sub trend-down">▼ 1 SLA breached</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Projects on RAG red</div>
+          <div class="metric-value">4 / 18</div>
+          <div class="metric-sub trend-down">▼ 2 escalated this week</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <div class="tab active">Executive Overview</div>
+        <div class="tab">Strategy &amp; Data</div>
+      </div>
+
+      <!-- 3-col grid -->
+      <div class="three-col">
+
+        <!-- Priority Queue -->
+        <div class="card" style="position:relative">
+          <div class="card-header">
+            <div class="card-title">Executive priority queue</div>
+            <div class="card-chips"><span class="chip chip-gray">PriorityItem</span><span class="chip chip-gray">OKG score</span></div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-crit">93</div>
+            <div style="flex:1">
+              <div class="pq-title">AWS prod DB failover — RDS Multi-AZ degraded</div>
+              <div class="pq-desc">Primary replica unresponsive since 04:17. Read traffic rerouted; write latency +340 ms.</div>
+              <div class="pq-tags"><span class="chip chip-blue">IT</span><span class="chip chip-gray">ACTIVE</span></div>
+            </div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-high">84</div>
+            <div style="flex:1">
+              <div class="pq-title">Q2 cloud spend 22% above plan</div>
+              <div class="pq-desc">CostCenter CC-INFRA at ₹4.1 Cr vs ₹3.36 Cr plan. Compute &amp; egress top drivers.</div>
+              <div class="pq-tags"><span class="chip chip-blue">IT</span><span class="chip chip-amber" style="background:#fef9c3;color:#854d0e">Finance</span><span class="chip chip-gray">ESCALATED</span></div>
+            </div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-high">76</div>
+            <div style="flex:1">
+              <div class="pq-title">DR backup SLA breached — RPO 6h vs target 1h</div>
+              <div class="pq-desc">Nightly snapshot job failing since 2026-05-05. 3 production databases affected.</div>
+              <div class="pq-tags"><span class="chip chip-blue">IT</span><span class="chip chip-gray">OPEN</span></div>
+            </div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-med">61</div>
+            <div style="flex:1">
+              <div class="pq-title">Vendor contract renewal — Infosys MSA expiring May 31</div>
+              <div class="pq-desc">Legal review pending. ₹2.8 Cr renewal. Risk of gap if not signed by May 20.</div>
+              <div class="pq-tags"><span class="chip chip-amber" style="background:#fef9c3;color:#854d0e">Finance</span><span class="chip chip-green" style="background:#f0fdf4;color:#15803d">Ops</span></div>
+            </div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-med">47</div>
+            <div style="flex:1">
+              <div class="pq-title">DevOps capacity conflict — Sprint 22 overloaded</div>
+              <div class="pq-desc">14 active tickets, 3 engineers. 4 P1 items at risk of slipping.</div>
+              <div class="pq-tags"><span class="chip chip-blue">IT</span><span class="chip chip-gray">OPEN</span></div>
+            </div>
+          </div>
+          <div class="pq-item">
+            <div class="score-badge score-low">33</div>
+            <div style="flex:1">
+              <div class="pq-title">FY26 Q2 headcount requisition unapproved</div>
+              <div class="pq-desc">6 open reqs. Hiring freeze extension needs CEO sign-off.</div>
+              <div class="pq-tags"><span class="chip chip-gray" style="background:#fce7f3;color:#9d174d">HR</span><span class="chip chip-gray">PENDING</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Decisions -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent decisions</div>
+            <div class="card-chips"><span class="chip chip-gray">Decision</span><span class="chip chip-gray">PriorityItem</span></div>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Emergency cloud budget top-up — ₹80 L approved</div>
+            <div class="dec-meta"><span style="color:#16a34a;font-weight:700">APPROVED</span> · CEO · 2026-05-07</div>
+            <div class="dec-rationale">Unplanned egress spike from video analytics rollout. Approved to avoid service disruption.</div>
+            <span class="chip chip-amber" style="background:#fef9c3;color:#854d0e">Finance</span>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Infosys SLA penalty waiver — Q1 breach</div>
+            <div class="dec-meta"><span style="color:#16a34a;font-weight:700">APPROVED</span> · CEO + CFO · 2026-05-06</div>
+            <div class="dec-rationale">Waiver granted for 15% discount on FY27 renewal and 99.7% SLA commitment.</div>
+            <span class="chip chip-amber" style="background:#fef9c3;color:#854d0e">Finance</span>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Infrastructure modernisation roadmap — Phase 2</div>
+            <div class="dec-meta"><span style="color:#d97706;font-weight:700">PENDING</span> · CTO · 2026-05-05</div>
+            <div class="dec-rationale">Awaiting board approval for ₹3.2 Cr capex. CTO briefing scheduled 2026-05-12.</div>
+            <span class="chip chip-blue">IT</span>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Zero-trust network segmentation — pilot approved</div>
+            <div class="dec-meta"><span style="color:#16a34a;font-weight:700">APPROVED</span> · CISO + CEO · 2026-05-04</div>
+            <div class="dec-rationale">Post-pen-test finding. Pilot on DMZ segment before org-wide rollout in Q3.</div>
+            <span class="chip chip-gray" style="background:#fee2e2;color:#991b1b">Security</span>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Q2 additional headcount — 6 reqs denied</div>
+            <div class="dec-meta"><span style="color:#dc2626;font-weight:700">REJECTED</span> · CFO · 2026-05-02</div>
+            <div class="dec-rationale">Hiring freeze extended to end of Q2. Revisit after mid-year P&amp;L review.</div>
+            <span class="chip chip-gray" style="background:#fce7f3;color:#9d174d">HR</span>
+          </div>
+          <div class="dec-item">
+            <div class="dec-title">Qdrant vector DB — production promotion approved</div>
+            <div class="dec-meta"><span style="color:#16a34a;font-weight:700">APPROVED</span> · CTO · 2026-04-30</div>
+            <div class="dec-rationale">RAG retrieval latency improved 60%. Promoted after 30-day soak in staging.</div>
+            <span class="chip chip-blue">IT</span>
+          </div>
+        </div>
+
+        <!-- AI Copilot -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">AI co-pilot</div>
+            <div class="card-chips">
+              <span class="chip chip-gray">RAG</span>
+              <span class="chip chip-gray">OKG</span>
+              <span class="chip chip-gray">LLM</span>
+            </div>
+          </div>
+          <div class="ai-answer">
+            <p>"Good morning. Your top concern today is the vendor SLA window — review active incidents and budget items for immediate action required."</p>
+          </div>
+          <div class="ai-suggestions">
+            <span class="chip chip-gray" style="cursor:pointer">What are my top risks today?</span>
+            <span class="chip chip-gray" style="cursor:pointer">Summarise the AWS incident</span>
+            <span class="chip chip-gray" style="cursor:pointer">Which SLAs are breached?</span>
+          </div>
+          <div class="ai-input">
+            <input type="text" placeholder="Ask anything..." readonly/>
+            <button class="ai-send">→</button>
+          </div>
+          <div style="margin-top:12px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#64748b;line-height:1.6">
+            <strong style="display:block;margin-bottom:4px;color:#0f172a">How it works</strong>
+            The AI Co-pilot runs a 3-step pipeline:<br/>
+            1. <strong>RAG retrieval</strong> — Qdrant vector search (top-3 chunks)<br/>
+            2. <strong>Graph query</strong> — ArcadeDB structured lookup<br/>
+            3. <strong>LLM synthesis</strong> — Llama 3.2 3B via Ollama (local, no data leaves)
+          </div>
+        </div>
+
+      </div><!-- /three-col -->
+    </div><!-- /dash-shell -->
+
+    <!-- Callout overlays -->
+    <div class="callout" style="top:12px;left:6px"    data-tip="① Orphos Brand + Tagline">①</div>
+    <div class="callout" style="top:12px;right:6px"   data-tip="② CEO Identity · Date/Time · Notification Bell">②</div>
+    <div class="callout" style="top:120px;left:6px"   data-tip="③ Metrics Row">③</div>
+    <div class="callout" style="top:206px;left:6px"   data-tip="④ Tab Bar">④</div>
+    <div class="callout" style="top:248px;left:8px"   data-tip="⑤ Priority Queue">⑤</div>
+    <div class="callout" style="top:248px;left:370px" data-tip="⑥ Recent Decisions">⑥</div>
+    <div class="callout" style="top:248px;left:728px" data-tip="⑦ AI Co-pilot">⑦</div>
+  </div>
+</div>
+
+<!-- Tab 1 callout legend -->
+<div class="section" id="callouts-tab1">
+  <div class="section-title" style="font-size:15px"><span class="num" style="background:#f97316">!</span> Tab 1 — Annotated Callouts</div>
+  <div class="legend-grid">
+    <div class="legend-item">
+      <div class="legend-num">①</div>
+      <div class="legend-body">
+        <h4>Orphos — Brand &amp; Tagline</h4>
+        <p><strong>Orphos</strong> appears as the bold, prominent product name (24 px, weight 800). <em>EXECUTIVE INTELLIGENCE PLATFORM</em> sits immediately to the right as an uppercase tagline in muted grey — providing context without competing for attention. This appears on every page and both tabs.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">②</div>
+      <div class="legend-body">
+        <h4>CEO Identity · Clock · Notification Bell</h4>
+        <p>The right end of the header shows the signed-in role (<strong>CEO</strong>), today's date and current time (updates every minute). A large blue <strong>person icon</strong> represents the current user. A small green <strong>bell icon</strong> overlaps the top-right of the avatar — the orange number inside the bell is the total on-track item count (tracker indicator). Hover for tooltip. Alert severity chips (<span style="color:#dc2626;font-weight:600">critical</span> / <span style="color:#d97706;font-weight:600">high</span>) appear to the left of the separator when active.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">③</div>
+      <div class="legend-body">
+        <h4>Metrics Row — 4 live KPI cards</h4>
+        <p>Always visible. Pulls real-time data from ArcadeDB every page load. Shows system uptime vs SLA target, IT budget burn rate vs plan, active incident count, and projects currently on RAG red. Grey chip tags are OKG ontology vertex types.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">④</div>
+      <div class="legend-body">
+        <h4>Tab Bar — Executive Overview / Strategy &amp; Data</h4>
+        <p>Click either tab to switch between the two views. The blue underline indicates the active tab. Metrics Row and the Orphos Header Bar remain visible on both tabs.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">⑤</div>
+      <div class="legend-body">
+        <h4>Executive Priority Queue</h4>
+        <p>Ranked list of items requiring CEO/CTO attention, scored by the EPQ engine (priority-engine-service, Caffeine cache 30 s TTL). Score circle colour: <span style="color:#dc2626;font-weight:600">red ≥80</span>, <span style="color:#d97706;font-weight:600">amber ≥60</span>, <span style="color:#2563eb;font-weight:600">blue ≥40</span>, <span style="color:#16a34a;font-weight:600">green &lt;40</span>. Domain chips show cross-domain impact. Live from ArcadeDB; falls back to seed data when the API is unavailable.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">⑥</div>
+      <div class="legend-body">
+        <h4>Recent Decisions</h4>
+        <p>CEO/CTO decision audit trail written to ArcadeDB Decision vertices by decision-log-service. Each card shows title, status (<span style="color:#16a34a;font-weight:600">APPROVED</span> / <span style="color:#d97706;font-weight:600">PENDING</span> / <span style="color:#dc2626;font-weight:600">REJECTED</span>), deciding authority, date, and the rationale recorded at decision time. Live from ArcadeDB; falls back to seed data.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">⑦</div>
+      <div class="legend-body">
+        <h4>AI Co-pilot — Natural Language Query</h4>
+        <p>Type any question or click a suggestion chip. Internally: (1) Qdrant retrieves top-3 vector chunks, (2) ArcadeDB runs a structured graph query, (3) Llama 3.2 3B on Ollama synthesises the answer locally — no data leaves the network. RAG / OKG / LLM chips show which pipeline stages activated. Typical response time: 10–60 s (CPU inference).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════ S3: TAB 2 -->
+<div class="section" id="tab2">
+  <div class="section-title"><span class="num">3</span> Tab 2 — Strategy &amp; Data</div>
+  <p class="section-desc">Three panels providing medium-term strategic visibility: OKR delivery confidence, initiative RAG status, and a live map of the ontology data sources feeding the knowledge graph.</p>
+
+  <div class="tab-screenshot-label">SCREENSHOT — Tab 2: Strategy &amp; Data</div>
+
+  <div class="anno-wrap">
+    <div class="dash-shell">
+      <!-- Header -->
+      <div class="dash-header-bar">
+        <div class="dash-brand">
+          <span class="dash-brand-name">Orphos</span>
+          <span class="dash-brand-tag">Executive Intelligence Platform</span>
+        </div>
+        <div class="dash-right">
+          <div class="dash-chips">
+            <span class="chip chip-red">1 critical</span>
+            <span class="chip chip-amber">2 high</span>
+          </div>
+          <button class="refresh-btn">↻</button>
+          <div class="dash-divider"></div>
+          <div class="dash-user-block">
+            <div class="dash-datetime">
+              <div class="ceo-label">CEO</div>
+              <div class="ceo-date">Thursday, 8 May 2026</div>
+              <div class="ceo-date">23:46</div>
+            </div>
+            <div class="dash-avatar-wrap">
+              <div class="dash-avatar">👤</div>
+              <div class="dash-bell">
+                <div class="dash-bell-inner">
+                  <span class="dash-bell-icon">🔔</span>
+                  <span class="dash-bell-count">14</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">System uptime <span class="chip chip-gray">SLAMetric</span></div>
+          <div class="metric-value">97.3%</div>
+          <div class="metric-sub trend-down">▼ 0.4pp below SLA target</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">IT budget consumed</div>
+          <div class="metric-value">68%</div>
+          <div class="metric-sub trend-up-warn">▲ +12% vs plan at M3</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Active incidents</div>
+          <div class="metric-value">2</div>
+          <div class="metric-sub trend-down">▼ 1 SLA breached</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Projects on RAG red</div>
+          <div class="metric-value">4 / 18</div>
+          <div class="metric-sub trend-down">▼ 2 escalated this week</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <div class="tab">Executive Overview</div>
+        <div class="tab active">Strategy &amp; Data</div>
+      </div>
+
+      <!-- 3-col grid -->
+      <div class="three-col">
+
+        <!-- OKR Confidence -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">OKR confidence</div>
+            <div class="card-chips"><span class="chip chip-gray">KeyResult</span><span class="chip chip-gray">Objective</span></div>
+          </div>
+          <div class="okr-item">
+            <div class="okr-row"><span class="okr-name">Platform reliability</span><span class="okr-pct">42%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:42%;background:#f87171"></div></div>
+          </div>
+          <div class="okr-item">
+            <div class="okr-row"><span class="okr-name">Engineering velocity</span><span class="okr-pct">61%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:61%;background:#fb923c"></div></div>
+          </div>
+          <div class="okr-item">
+            <div class="okr-row"><span class="okr-name">Cloud cost efficiency</span><span class="okr-pct">38%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:38%;background:#f87171"></div></div>
+          </div>
+          <div class="okr-item">
+            <div class="okr-row"><span class="okr-name">Talent retention</span><span class="okr-pct">74%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:74%;background:#4ade80"></div></div>
+          </div>
+          <div class="okr-item">
+            <div class="okr-row"><span class="okr-name">Security posture</span><span class="okr-pct">83%</span></div>
+            <div class="progress-bar"><div class="progress-fill" style="width:83%;background:#4ade80"></div></div>
+          </div>
+          <div style="margin-top:14px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#64748b;line-height:1.6">
+            <strong style="color:#0f172a">Colour key:</strong><br/>
+            <span style="color:#f87171">■</span> &lt;50% — at risk &nbsp;
+            <span style="color:#fb923c">■</span> 50–69% — watch &nbsp;
+            <span style="color:#4ade80">■</span> ≥70% — on track
+          </div>
+        </div>
+
+        <!-- Initiative Delivery -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Initiative delivery</div>
+            <div class="card-chips"><span class="chip chip-gray">Project</span><span class="chip chip-gray">Milestone</span></div>
+          </div>
+          <div class="init-item">
+            <div class="init-name" style="font-size:12px">Project Phoenix</div>
+            <div class="init-bar-wrap"><div class="init-fill" style="width:35%;background:#dc2626"></div></div>
+            <span class="chip chip-red" style="font-size:10px;font-weight:700;min-width:36px;text-align:center">RED</span>
+          </div>
+          <div class="init-item">
+            <div class="init-name" style="font-size:12px">Cloud migration</div>
+            <div class="init-bar-wrap"><div class="init-fill" style="width:55%;background:#f59e0b"></div></div>
+            <span class="chip chip-amber" style="font-size:10px;font-weight:700;min-width:36px;text-align:center">AMB</span>
+          </div>
+          <div class="init-item">
+            <div class="init-name" style="font-size:12px">HRIS upgrade</div>
+            <div class="init-bar-wrap"><div class="init-fill" style="width:90%;background:#22c55e"></div></div>
+            <span class="chip chip-green" style="font-size:10px;font-weight:700;min-width:36px;text-align:center">GRN</span>
+          </div>
+          <div class="init-item">
+            <div class="init-name" style="font-size:12px">Zero-trust rollout</div>
+            <div class="init-bar-wrap"><div class="init-fill" style="width:20%;background:#dc2626"></div></div>
+            <span class="chip chip-red" style="font-size:10px;font-weight:700;min-width:36px;text-align:center">RED</span>
+          </div>
+          <div class="init-item">
+            <div class="init-name" style="font-size:12px">Data platform</div>
+            <div class="init-bar-wrap"><div class="init-fill" style="width:85%;background:#22c55e"></div></div>
+            <span class="chip chip-green" style="font-size:10px;font-weight:700;min-width:36px;text-align:center">GRN</span>
+          </div>
+          <div style="margin-top:14px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#64748b;line-height:1.6">
+            <strong style="color:#0f172a">RAG status:</strong><br/>
+            <span style="color:#dc2626;font-weight:700">RED</span> — off track, needs action &nbsp;
+            <span style="color:#d97706;font-weight:700">AMB</span> — risk, monitor &nbsp;
+            <span style="color:#16a34a;font-weight:700">GRN</span> — on track
+          </div>
+        </div>
+
+        <!-- Data Flow -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Data flow — live ontology sources</div>
+          </div>
+          <div class="df-domain">
+            <div class="df-header"><div class="df-dot" style="background:#2563eb"></div><div class="df-name">IT</div></div>
+            <div class="df-types">
+              <div class="df-type"><div class="df-type-dot" style="background:#2563eb"></div>ITSystem</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#2563eb"></div>Incident</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#2563eb"></div>SLAMetric</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#2563eb"></div>CloudCostItem</div>
+            </div>
+          </div>
+          <div class="df-domain">
+            <div class="df-header"><div class="df-dot" style="background:#d97706"></div><div class="df-name">Finance</div></div>
+            <div class="df-types">
+              <div class="df-type"><div class="df-type-dot" style="background:#d97706"></div>CostCentre</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#d97706"></div>BudgetItem</div>
+            </div>
+          </div>
+          <div class="df-domain">
+            <div class="df-header"><div class="df-dot" style="background:#16a34a"></div><div class="df-name">Ops</div></div>
+            <div class="df-types">
+              <div class="df-type"><div class="df-type-dot" style="background:#16a34a"></div>DeliveryRisk</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#16a34a"></div>CapacityConflict</div>
+              <div class="df-type"><div class="df-type-dot" style="background:#16a34a"></div>Project</div>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding:10px;background:#f8fafc;border-radius:8px;font-size:11px;color:#64748b;line-height:1.6">
+            <strong style="color:#0f172a">Pipeline:</strong><br/>
+            Domain events → <strong>Kafka :9092</strong> → okg-ingest-service writes vertices to <strong>ArcadeDB orphos</strong>. OKG-reasoning reads ArcadeDB every 15 min, runs <strong>HermiT OWL 2 RL</strong> inference, writes derived triples to <strong>Fuseki TDB2</strong>.
+          </div>
+        </div>
+
+      </div><!-- /three-col -->
+    </div><!-- /dash-shell -->
+
+    <!-- Callout overlays -->
+    <div class="callout" style="top:248px;left:8px"   data-tip="⑧ OKR Confidence">⑧</div>
+    <div class="callout" style="top:248px;left:370px" data-tip="⑨ Initiative Delivery">⑨</div>
+    <div class="callout" style="top:248px;left:728px" data-tip="⑩ Data Flow">⑩</div>
+  </div>
+</div>
+
+<!-- Tab 2 callout legend -->
+<div class="section" id="callouts-tab2">
+  <div class="section-title" style="font-size:15px"><span class="num" style="background:#f97316">!</span> Tab 2 — Annotated Callouts</div>
+  <div class="legend-grid">
+    <div class="legend-item">
+      <div class="legend-num">⑧</div>
+      <div class="legend-body">
+        <h4>OKR Confidence</h4>
+        <p>Progress bars for each strategic objective's key results, expressed as a confidence percentage. Bar colour: <span style="color:#f87171;font-weight:600">red &lt;50%</span> (at risk), <span style="color:#fb923c;font-weight:600">orange 50–69%</span> (watch zone), <span style="color:#4ade80;font-weight:600">green ≥70%</span> (on track). Static data — connect to ArcadeDB KeyResult vertices for live feed.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">⑨</div>
+      <div class="legend-body">
+        <h4>Initiative Delivery</h4>
+        <p>Horizontal progress bars for each active initiative with a RAG status badge. <span style="color:#dc2626;font-weight:700">RED</span> = off-track, needs CEO escalation. <span style="color:#d97706;font-weight:700">AMB</span> = at risk, under monitoring. <span style="color:#16a34a;font-weight:700">GRN</span> = on track. Static data — connect to ArcadeDB Project/Milestone vertices for live feed.</p>
+      </div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-num">⑩</div>
+      <div class="legend-body">
+        <h4>Data Flow — Live Ontology Sources</h4>
+        <p>Shows the domain-to-vertex-type mapping of all data currently flowing into the knowledge graph. Three domain colours: <span style="color:#2563eb;font-weight:600">IT</span>, <span style="color:#d97706;font-weight:600">Finance</span>, <span style="color:#16a34a;font-weight:600">Ops</span>. Each dot is an OWL class being ingested via Kafka → okg-ingest-service → ArcadeDB. The 15-min OKG reasoning cycle enriches these with inferred relationships in Apache Fuseki TDB2.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════ S4: QUICK REFERENCE -->
+<div class="section" id="quickref">
+  <div class="section-title"><span class="num">4</span> Quick Reference</div>
+
+  <table>
+    <thead>
+      <tr><th>Panel</th><th>Tab</th><th>Data source</th><th>API endpoint</th><th>Refresh</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Metrics Row</td><td>Both</td><td>ArcadeDB (priority-engine, briefing-service)</td><td><code>/api/priority/sla</code> · <code>/api/briefing/latest</code></td><td>On load</td></tr>
+      <tr><td>Alert chips · Bell tracker (header)</td><td>Both</td><td>ArcadeDB (notification-service)</td><td><code>/api/alerts</code></td><td>On load</td></tr>
+      <tr><td>Executive Priority Queue</td><td>1</td><td>ArcadeDB (priority-engine-service)</td><td><code>/api/priority/queue</code></td><td>↻ button</td></tr>
+      <tr><td>Recent Decisions</td><td>1</td><td>ArcadeDB (decision-log-service)</td><td><code>/api/decisions</code></td><td>↻ button</td></tr>
+      <tr><td>AI Co-pilot</td><td>1</td><td>Qdrant + ArcadeDB + Ollama (nl-query-service)</td><td><code>/api/nl-query/ask</code></td><td>On submit</td></tr>
+      <tr><td>OKR Confidence</td><td>2</td><td>Static (ArcadeDB KeyResult integration planned)</td><td>—</td><td>↻ button</td></tr>
+      <tr><td>Initiative Delivery</td><td>2</td><td>Static (ArcadeDB Project/Milestone integration planned)</td><td>—</td><td>↻ button</td></tr>
+      <tr><td>Data Flow</td><td>2</td><td>Static ontology map (reflects eip-core.owl)</td><td>—</td><td>Static</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#1e3a5f">Access URLs</div>
+      <div style="font-size:12px;line-height:2">
+        <strong>Dashboard (Dev):</strong> <code>http://localhost:5175</code><br/>
+        <strong>Dashboard (Docker):</strong> <code>http://localhost:3001</code><br/>
+        <strong>This help page:</strong> <code>http://localhost:5175/help.html</code><br/>
+        <strong>ArcadeDB Studio:</strong> <code>http://localhost:2480</code><br/>
+        <strong>Fuseki SPARQL:</strong> <code>http://localhost:3030</code><br/>
+        <strong>Grafana Ops:</strong> <code>http://localhost:3000</code><br/>
+        <strong>Keycloak Admin:</strong> <code>http://localhost:8443</code>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#1e3a5f">Score Ring Colours</div>
+      <div style="font-size:12px;line-height:2.2">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #dc2626;vertical-align:middle;margin-right:6px"></span><strong>Red</strong> — Critical, score ≥ 80<br/>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #d97706;vertical-align:middle;margin-right:6px"></span><strong>Amber</strong> — High, score 60–79<br/>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #2563eb;vertical-align:middle;margin-right:6px"></span><strong>Blue</strong> — Medium, score 40–59<br/>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #16a34a;vertical-align:middle;margin-right:6px"></span><strong>Green</strong> — Low, score &lt; 40
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:#1e3a5f">OKG Chip Tags</div>
+      <div style="font-size:12px;line-height:2">
+        Grey chips on card headers indicate the <strong>OWL ontology vertex type</strong> that backs the panel data.<br/><br/>
+        <code>PriorityItem</code> · <code>Incident</code> · <code>SLAMetric</code> · <code>Decision</code> · <code>BudgetItem</code> · <code>CostCentre</code> · <code>KeyResult</code> · <code>Project</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<div style="background:#1e3a5f;color:#9cb3cc;text-align:center;padding:18px;font-size:12px">
+  Orphos Executive Intelligence Platform · Dashboard Guide v1.1 · 2026-05-08 · <a href="/" style="color:#60a5fa">← Back to Dashboard</a>
+</div>
+
+</body>
+</html>

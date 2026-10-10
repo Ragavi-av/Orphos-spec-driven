@@ -1,0 +1,593 @@
+<?xml version="1.0"?>
+<!--
+  EIP HR Ontology — the CHRO's domain: people, positions, headcount, talent, and
+  the aggregate cost of employment.
+
+  ── What is deliberately NOT modelled ─────────────────────────────────────
+  This file is the sharpest test of the PII-minimising convention that
+  eip-enterprise.owl and OkgGraphRepository.upsertPerson already follow, so the
+  omissions are as much a design decision as the classes:
+
+    * No individual compensation. hr:Employee has no salary property. Pay is
+      modelled at two aggregate levels only — hr:CompensationBand (a range for a
+      grade, attached to no person) and hr:PayrollRun (a total for a population
+      in a period). "What does this person earn" is therefore not a question the
+      graph can answer, for any persona, including CEO and CHRO.
+    * No individual performance rating. hr:PerformanceCycle holds the
+      DISTRIBUTION for a population; there is no per-person rating class.
+    * No candidates. hr:Requisition models the open role, not the applicants —
+      recruitment pipelines are dense PII and add nothing a persona dashboard
+      needs.
+    * No contact details, government ids, dates of birth, addresses, dependants,
+      medical or absence detail. hr:Employee inherits ent:Person, which carries
+      only a display name and a job title.
+
+  gov:Restricted exists in the governance vocabulary so that data of this kind
+  can be RECOGNISED and refused if it ever arrives from an upstream source — not
+  so that some persona can be granted it. No persona holds gov:Restricted.
+
+  ── Reuse rather than redefinition ────────────────────────────────────────
+  hr:Employee is rdfs:subClassOf ent:Person, which means it inherits
+  ent:reportsTo (transitive) and ent:memberOf for free. The reporting-chain
+  closure the enterprise ontology already infers therefore covers employees
+  too — that inferred closure is exactly what an OWN_REPORTS access scope
+  resolves against, so org-scoped RBAC needs no new traversal code.
+
+  Similarly, departments are ent:OrgUnit — not a parallel HR-only tree. One org
+  structure, used by finance for budgets, by HR for headcount, and by strategy
+  for ownership.
+
+  ── Automatic classification ──────────────────────────────────────────────
+  As in eip-finance.owl, every class carries class-level owl:hasValue
+  restrictions on gov:inDataDomain and gov:hasSensitivity, so domain and
+  sensitivity are INFERRED per instance rather than stamped by a loader.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/hr#"
+     xml:base="http://orphos.eip/ontology/hr"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#"
+     xmlns:zen="https://orphos.io/ontology/zenitus#"
+     xmlns:hr="http://orphos.eip/ontology/hr#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/hr"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#Employee">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/enterprise#Person"/>
+        <rdfs:label>Employee</rdfs:label>
+        <rdfs:comment>A person employed by the company. Inherits ent:reportsTo,
+            ent:memberOf and the display-name-only identity of ent:Person. Carries
+            an opaque hr:employeeCode for joining to source systems — never a
+            personal identifier, and no compensation.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#Position">
+        <rdfs:label>Position</rdfs:label>
+        <rdfs:comment>A seat in the org — filled or vacant. Separating the seat from
+            the person is what makes vacancy, span of control and planned headcount
+            answerable; an Employee-only model cannot express an empty chair.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#Designation">
+        <rdfs:label>Designation</rdfs:label>
+        <rdfs:comment>A job title / grade in the career framework.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#EmploymentType">
+        <rdfs:label>Employment Type</rdfs:label>
+        <rdfs:comment>Permanent, contract, intern, part-time.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#HeadcountSnapshot">
+        <rdfs:label>Headcount Snapshot</rdfs:label>
+        <rdfs:comment>Headcount for one org unit in one period — the aggregate that
+            backs the headcount and headcount-by-dept widgets. Stored rather than
+            counted live so a period's number stays stable after joiners and
+            leavers move on.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#AttritionSnapshot">
+        <rdfs:label>Attrition Snapshot</rdfs:label>
+        <rdfs:comment>Joiners, leavers and the resulting attrition rate for an org
+            unit in a period. Aggregate — no leaver is named.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTalent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#CompensationBand">
+        <rdfs:label>Compensation Band</rdfs:label>
+        <rdfs:comment>The pay range for a Designation — a property of the GRADE, not
+            of any person. Attaching money here instead of to an Employee is what
+            keeps individual pay unrepresentable while still letting the CFO ask
+            what a grade costs.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPayroll"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#PayrollRun">
+        <rdfs:label>Payroll Run</rdfs:label>
+        <rdfs:comment>Total employment cost for one org unit in one period, with the
+            headcount it covers. An aggregate of at least hr:minimumPopulation
+            people by convention, so a single salary can never be recovered by
+            subtraction — the reason this is Confidential rather than
+            Restricted.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainPayroll"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#Skill">
+        <rdfs:label>Skill</rdfs:label>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTalent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#TrainingCourse">
+        <rdfs:label>Training Course</rdfs:label>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTalent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#Requisition">
+        <rdfs:label>Requisition</rdfs:label>
+        <rdfs:comment>An approved open role. Models the VACANCY, not the applicants —
+            see the file header on why candidates are absent.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTalent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#PerformanceCycle">
+        <rdfs:label>Performance Cycle</rdfs:label>
+        <rdfs:comment>A review round and the DISTRIBUTION of outcomes across a
+            population (how many exceeded, met, missed). Deliberately has no link
+            to any Employee — there is no per-person rating class in this
+            ontology.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTalent"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#holdsPosition">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Position"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#heldBy">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/hr#holdsPosition"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Position"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:comment>Absent on a vacant Position — that absence IS the vacancy.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#positionInOrgUnit">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Position"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#hasDesignation">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Designation"/>
+        <rdfs:comment>No domain: both an Employee and a Position have a designation.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#hasEmploymentType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#EmploymentType"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#bandForDesignation">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#CompensationBand"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Designation"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#snapshotForOrgUnit">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+        <rdfs:comment>No domain: headcount, attrition and payroll snapshots all scope
+            to an org unit. Combined with ent:subUnitOf transitivity, a division's
+            total is the sum over its inferred subtree.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#hasSkill">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Skill"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#requiresSkill">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Skill"/>
+        <rdfs:comment>Asserted by Position and Requisition. The gap between
+            hr:requiresSkill across open positions and hr:hasSkill across employees
+            is the skills-gap question, answerable with no extra classes.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#teachesSkill">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#TrainingCourse"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Skill"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/hr#requisitionForPosition">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Requisition"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/hr#Position"/>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#employeeCode">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>An OPAQUE join key to the HR system of record. Must not encode
+            a name, date of birth, or any national/tax identifier.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#employmentStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>ACTIVE, ON_LEAVE, NOTICE, LEFT. No reason code — a reason is
+            personal.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#hireDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+        <rdfs:comment>Kept because tenure drives legitimate aggregates (attrition by
+            cohort). Note it is company data, not personal history — no
+            corresponding date of birth exists anywhere in this ontology.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#fteRatio">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>1.0 = full time. Lets headcount be counted as heads or as FTE.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#positionStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Position"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>FILLED, VACANT, FROZEN, PLANNED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#gradeLevel">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Designation"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#headcount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#fteCount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#joinerCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AttritionSnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#leaverCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AttritionSnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#attritionRate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AttritionSnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#bandMinimum">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#CompensationBand"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#bandMaximum">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#CompensationBand"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#totalCost">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PayrollRun"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>Total employment cost for the covered population — never
+            divisible down to a person by anything in this graph.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#coveredHeadcount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PayrollRun"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#minimumPopulation">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PayrollRun"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+        <rdfs:comment>The k-anonymity floor a payroll aggregate must satisfy before it
+            may be exposed (default 5). A run whose coveredHeadcount falls below
+            this must be suppressed rather than shown — the enforcement rule
+            belongs in the query layer, but the threshold belongs here with the
+            data it protects.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#requisitionStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Requisition"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>OPEN, ON_HOLD, FILLED, CANCELLED.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#openedDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#Requisition"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#exceededCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PerformanceCycle"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#metCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PerformanceCycle"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#belowCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#PerformanceCycle"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+
+    <!-- ===================== Mobile / Team Intelligence additions =============
+         Back the Team Intelligence items — productivity, wellbeing, availability.
+         AGGREGATE per org unit per period, never per person, exactly like
+         HeadcountSnapshot / AttritionSnapshot: they reuse hr:snapshotForOrgUnit
+         (declared with no domain for this reason) so no new traversal is needed.
+         Team-level wellbeing is what backs the burnout signal without naming
+         anyone; the per-person cue stays a Fuseki-inferred eip:OverloadedPerson
+         insight, not stored data. Per-person availability/leave is deliberately
+         still absent — see the file header on excluded PII. -->
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#ProductivitySnapshot">
+        <rdfs:label>Productivity Snapshot</rdfs:label>
+        <rdfs:comment>Aggregate productivity for one org unit in one period. Stored, not
+            counted live, so a period's number stays stable. Named for no one.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#WellbeingSnapshot">
+        <rdfs:label>Wellbeing Snapshot</rdfs:label>
+        <rdfs:comment>Aggregate wellbeing / overload index for one org unit in one period.
+            The team-level backing for the burnout signal — no individual is named.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/hr#AvailabilitySnapshot">
+        <rdfs:label>Availability Snapshot</rdfs:label>
+        <rdfs:comment>Team availability as COUNTS per org unit at a point in time
+            (available / busy / on-leave). Aggregate only — no individual leave is
+            recorded here; the viewer's own status is derived live from their calendar
+            in mail-insight and is not stored as a person vertex.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- These reuse hr:snapshotForOrgUnit (above). Only new data properties follow. -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#productivityIndex">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#ProductivitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#utilisationPct">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#ProductivitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#throughputCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#ProductivitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#wellbeingIndex">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#WellbeingSnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>0–100 aggregate.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#overloadRatePct">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#WellbeingSnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>Share of the population over the overload threshold.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#availableCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AvailabilitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#busyCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AvailabilitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/hr#onLeaveCount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/hr#AvailabilitySnapshot"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+
+    <!-- ===================== Alignment with zenitus.owl ===================== -->
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#Employee">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/hr#Employee"/>
+    </owl:Class>
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#Designation">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/hr#Designation"/>
+    </owl:Class>
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#EmploymentType">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/hr#EmploymentType"/>
+    </owl:Class>
+    <!-- Zenitus modelled Department as its own class; it is an org unit in the
+         shared model, so aligning it means one org tree, not two. -->
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#Department">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+    </owl:Class>
+    <owl:ObjectProperty rdf:about="https://orphos.io/ontology/zenitus#worksInDepartment">
+        <rdfs:subPropertyOf rdf:resource="http://orphos.eip/ontology/enterprise#memberOf"/>
+        <rdfs:comment>Zenitus's HR link becomes an ent:memberOf assertion, so Zenitus
+            employees appear in the shared org-membership closure.</rdfs:comment>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="https://orphos.io/ontology/zenitus#reportsTo">
+        <rdfs:subPropertyOf rdf:resource="http://orphos.eip/ontology/enterprise#reportsTo"/>
+        <rdfs:comment>Sub-property of the TRANSITIVE ent:reportsTo, so Zenitus's flat
+            manager links gain the full inferred management chain — a concrete
+            example of alignment buying inference rather than just tidiness.</rdfs:comment>
+    </owl:ObjectProperty>
+
+</rdf:RDF>

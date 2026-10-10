@@ -1,0 +1,50 @@
+# Ownership map for the core-platform vs. plug-and-play feature module split.
+# See the modularization plan for the full rationale behind these boundaries.
+# Update this file whenever a new services/* or frontend/remotes/* module is
+# added (see the "adding a new plug-and-play module" runbook).
+
+# ---- Platform Core ----
+/libs/eip-common/                      @org/platform-core
+/libs/eip-secrets/                     @org/platform-core
+/libs/eip-core-security/               @org/platform-core
+/libs/eip-core-arcadedb/               @org/platform-core
+/libs/eip-core-ai-client/              @org/platform-core
+/services/platform-core-service/       @org/platform-core
+/services/admin-console-service/       @org/platform-core
+/services/platform-registry-service/   @org/platform-core
+/services/notification-service/        @org/platform-core
+/pom.xml                               @org/platform-core
+/.github/                              @org/platform-core
+/docker-compose.infra.yml              @org/platform-core
+/docker-compose.data.yml               @org/platform-core
+/docker-compose.app.yml                @org/platform-core
+
+# ---- AI Copilot ----
+/services/nl-query-service/            @org/team-ai-copilot
+/services/agent-orchestrator-service/  @org/team-ai-copilot
+
+# ---- Document Ingestion ----
+/services/doc-ingest-service/          @org/team-doc-ingestion
+/services/okg-ingest-service/          @org/team-doc-ingestion
+/services/okg-reasoning-service/       @org/team-doc-ingestion
+/services/graph-proxy-service/         @org/team-doc-ingestion
+
+# ---- Widgets ----
+/services/widgets-service/             @org/team-widgets
+/services/briefing-service/            @org/team-widgets
+/services/decision-log-service/        @org/team-widgets
+
+# ---- Tasks & Action Items ----
+/services/priority-engine-service/     @org/team-tasks-actions
+/services/mail-insight-service/        @org/team-tasks-actions
+
+# ---- Frontend (Module Federation: shell = host, remotes/* = plugins) ----
+/frontend/package.json                 @org/platform-core
+/frontend/shell/                       @org/platform-core
+/frontend/packages/eip-shell-context/  @org/platform-core
+/frontend/remotes/ai-copilot/          @org/team-ai-copilot
+/frontend/remotes/doc-ingest/          @org/team-doc-ingestion
+/frontend/remotes/rag-search/          @org/team-doc-ingestion
+/frontend/remotes/widgets/             @org/team-widgets
+/frontend/remotes/decision-log/        @org/team-widgets
+/frontend/remotes/email-scanner/       @org/team-tasks-actions

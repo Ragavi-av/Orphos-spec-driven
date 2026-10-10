@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="https://orphos.io/ontology/eip#"
+     xml:base="https://orphos.io/ontology/eip"
+     xmlns:eip="https://orphos.io/ontology/eip#"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+
+    <owl:Ontology rdf:about="https://orphos.io/ontology/eip"/>
+
+    <!-- Classes — each carries bilingual (en + ja) rdfs:label. Consumers select a
+         language with SPARQL, e.g. FILTER(langMatches(lang(?label), "ja")). -->
+    <owl:Class rdf:about="#Incident">
+        <rdfs:label xml:lang="en">Incident</rdfs:label>
+        <rdfs:label xml:lang="ja">インシデント</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#ITSystem">
+        <rdfs:label xml:lang="en">IT System</rdfs:label>
+        <rdfs:label xml:lang="ja">ITシステム</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#CostCentre">
+        <rdfs:label xml:lang="en">Cost Centre</rdfs:label>
+        <rdfs:label xml:lang="ja">コストセンター</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#SLAMetric">
+        <rdfs:label xml:lang="en">SLA Metric</rdfs:label>
+        <rdfs:label xml:lang="ja">SLA指標</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#BudgetItem">
+        <rdfs:label xml:lang="en">Budget Item</rdfs:label>
+        <rdfs:label xml:lang="ja">予算項目</rdfs:label>
+    </owl:Class>
+    <owl:Class rdf:about="#Alert">
+        <rdfs:label xml:lang="en">Alert</rdfs:label>
+        <rdfs:label xml:lang="ja">アラート</rdfs:label>
+    </owl:Class>
+
+    <!-- Object Properties -->
+    <owl:ObjectProperty rdf:about="#impacts">
+        <rdfs:label xml:lang="en">impacts</rdfs:label>
+        <rdfs:label xml:lang="ja">影響する</rdfs:label>
+        <rdfs:domain rdf:resource="#CostCentre"/>
+        <rdfs:range  rdf:resource="#Incident"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#funds">
+        <rdfs:label xml:lang="en">funds</rdfs:label>
+        <rdfs:label xml:lang="ja">資金提供する</rdfs:label>
+        <rdfs:domain rdf:resource="#CostCentre"/>
+        <rdfs:range  rdf:resource="#ITSystem"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#hasIncident">
+        <rdfs:label xml:lang="en">has incident</rdfs:label>
+        <rdfs:label xml:lang="ja">インシデントを持つ</rdfs:label>
+        <rdfs:domain rdf:resource="#ITSystem"/>
+        <rdfs:range  rdf:resource="#Incident"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="#hasSLAMetric">
+        <rdfs:label xml:lang="en">has SLA metric</rdfs:label>
+        <rdfs:label xml:lang="ja">SLA指標を持つ</rdfs:label>
+        <rdfs:domain rdf:resource="#ITSystem"/>
+        <rdfs:range  rdf:resource="#SLAMetric"/>
+    </owl:ObjectProperty>
+
+</rdf:RDF>

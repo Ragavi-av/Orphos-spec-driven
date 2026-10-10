@@ -1,0 +1,569 @@
+<?xml version="1.0"?>
+<!--
+  EIP Finance Ontology — the CFO's domain: budgets, the ledger, cash, receivables
+  and payables, and the statements built from them.
+
+  ── Automatic classification (the reason this file matters for RBAC) ────────
+  Every class below carries a class-level owl:hasValue restriction on
+  gov:inDataDomain and gov:hasSensitivity:
+
+      fin:BudgetLine rdfs:subClassOf
+          [ owl:onProperty gov:inDataDomain ; owl:hasValue gov:DomainBudget ] ,
+          [ owl:onProperty gov:hasSensitivity ; owl:hasValue gov:Confidential ]
+
+  so the reasoner INFERS the domain and sensitivity of every single budget line
+  without the loader stamping it on each row. A new row can never be forgotten,
+  which is the property an access-control classification has to have. Enforcement
+  then needs exactly one rule ("persona holds the domain and its maxSensitivity
+  rank >= the row's rank") rather than one rule per table.
+
+  ── Alignment with what already exists ─────────────────────────────────────
+  fin:CostCentre is declared owl:equivalentClass eip:CostCentre (eip-core.owl),
+  so the cost centres that IT incidents already hang off ARE the finance cost
+  centres — one entity, two viewpoints. That single axiom is what lets a CTO's
+  "which system cost us most" and a CFO's "which cost centre is over budget"
+  meet in the same graph.
+
+  zenitus.owl's zen:FiscalYear / zen:CashFlowMonth were the tenant-local
+  predecessors of gov:Period + fin:CashFlowEntry. They are left untouched (that
+  tenant's data still loads against them) and are aligned in
+  eip-alignment section at the foot of this file.
+
+  ── No PII ────────────────────────────────────────────────────────────────
+  Amounts attach to cost centres, org units, accounts, vendors and clients —
+  never to a person. Per-person compensation is not modelled here or in
+  eip-hr.owl; see that file's header.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/finance#"
+     xml:base="http://orphos.eip/ontology/finance"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#"
+     xmlns:eip="https://orphos.io/ontology/eip#"
+     xmlns:fin="http://orphos.eip/ontology/finance#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/finance"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#CostCentre">
+        <owl:equivalentClass rdf:resource="https://orphos.io/ontology/eip#CostCentre"/>
+        <rdfs:label>Cost Centre</rdfs:label>
+        <rdfs:comment>A unit that money is charged to. Equivalent to eip:CostCentre
+            from the IT-ops ontology on purpose — see the file header.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#GLAccount">
+        <rdfs:label>General Ledger Account</rdfs:label>
+        <rdfs:comment>A chart-of-accounts line. Nests via fin:parentAccount so the
+            account tree rolls up the same way the org tree does.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainGeneralLedger"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#Budget">
+        <rdfs:label>Budget</rdfs:label>
+        <rdfs:comment>A planned spend envelope for one org unit / cost centre over
+            one gov:Period.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainBudget"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#BudgetLine">
+        <rdfs:label>Budget Line</rdfs:label>
+        <rdfs:comment>One account's planned and actual amount within a Budget. Carries
+            both the plan and the actual so variance is a subtraction, not a join —
+            this is what backs the Budget Variance widget.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainBudget"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#LedgerEntry">
+        <rdfs:label>Ledger Entry</rdfs:label>
+        <rdfs:comment>A posted amount against an account and a cost centre in a
+            period. Superclass of Expense and RevenueEntry.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainGeneralLedger"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#Expense">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/finance#LedgerEntry"/>
+        <rdfs:label>Expense</rdfs:label>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#RevenueEntry">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/finance#LedgerEntry"/>
+        <rdfs:label>Revenue Entry</rdfs:label>
+        <rdfs:comment>Recognised revenue, optionally attributed to an ent:Client and
+            a com:Contract — the join that makes "revenue by client" answerable
+            without leaving the graph.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#ItSpendEntry">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/finance#Expense"/>
+        <rdfs:label>IT Spend Entry</rdfs:label>
+        <rdfs:comment>Technology spend. Classified into gov:DomainItSpend, which is a
+            subdomain of BOTH IT and Finance, so a CTO's IT grant reaches these rows
+            while the rest of the ledger stays closed. The one place the two
+            hierarchies deliberately overlap.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainItSpend"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#Invoice">
+        <rdfs:label>Invoice</rdfs:label>
+        <rdfs:comment>Receivable (to a client) or payable (to a vendor), per
+            fin:invoiceDirection.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#CashFlowEntry">
+        <rdfs:label>Cash Flow Entry</rdfs:label>
+        <rdfs:comment>Inflow and outflow for one period — the successor to
+            zen:CashFlowMonth, generalised to any gov:Period and any tenant.
+            Backs the net-cashflow / cash-inflow / cash-outflow widgets.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#FinancialStatement">
+        <rdfs:label>Financial Statement</rdfs:label>
+        <rdfs:comment>A published P&amp;L, balance sheet or cash-flow statement for a
+            period. fin:statementType distinguishes them.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#ForecastScenario">
+        <rdfs:label>Forecast Scenario</rdfs:label>
+        <rdfs:comment>A named what-if (Base, Upside, Downside) that budget lines and
+            cash-flow entries can belong to, so a forecast never overwrites actuals.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#Vendor">
+        <rdfs:label>Vendor</rdfs:label>
+        <rdfs:comment>A supplier the company pays. The mirror of ent:Client on the
+            payables side.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#parentAccount">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+        <rdfs:comment>Transitive: a leaf account rolls up to every ancestor, so
+            "total spend under Operations" needs no recursive SQL.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#hasSubAccount">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/finance#parentAccount"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#budgetForOrgUnit">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Budget"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#budgetForCostCentre">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Budget"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#CostCentre"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#hasBudgetLine">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Budget"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#BudgetLine"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#lineOfBudget">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/finance#hasBudgetLine"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#BudgetLine"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#Budget"/>
+    </owl:ObjectProperty>
+
+    <!-- No domain: BudgetLine, LedgerEntry and Invoice all post to an account. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#forAccount">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#chargedToCostCentre">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#CostCentre"/>
+        <rdfs:comment>No domain — ledger entries, invoices and budget lines all
+            charge to a cost centre.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#paidToVendor">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#Vendor"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#billedToClient">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Client"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#attributedToEngagement">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Engagement"/>
+        <rdfs:comment>Ties revenue and spend back to the ent:Engagement that earned
+            or consumed it — engagement profitability without a new class.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#inScenario">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#ForecastScenario"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#statementFor">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#FinancialStatement"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Company"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#fundsSystem">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CostCentre"/>
+        <rdfs:range rdf:resource="https://orphos.io/ontology/eip#ITSystem"/>
+        <rdfs:comment>Aligned with eip:funds from eip-core.owl — declared here as a
+            sub-property so the existing IT-ops assertions and the finance view
+            answer the same question.</rdfs:comment>
+        <rdfs:subPropertyOf rdf:resource="https://orphos.io/ontology/eip#funds"/>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#accountCode">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#accountType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#GLAccount"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#costCentreCode">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CostCentre"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#plannedAmount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#actualAmount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#committedAmount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>Ordered but not yet posted — the difference between "we have
+            money left" and "we have money left that isn't already spoken for".</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#amount">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#inflowAmount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CashFlowEntry"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#outflowAmount">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CashFlowEntry"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#closingBalance">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CashFlowEntry"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#invoiceDirection">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Invoice"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>RECEIVABLE | PAYABLE.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#invoiceStatus">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Invoice"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>DRAFT, ISSUED, PAID, OVERDUE, WRITTEN_OFF.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#dueDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Invoice"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#statementType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#FinancialStatement"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>PROFIT_AND_LOSS, BALANCE_SHEET, CASH_FLOW.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#postedDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#vendorCategory">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Vendor"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <!-- ===================== Mobile / executive additions =====================
+         Back the Financials tab's "My Portfolio" and "Credit Score" tiles. Both
+         carry the same class-level gov restrictions as their neighbours, so the
+         reasoner INFERS DomainFinance + Confidential per instance. Portfolio is a
+         management grouping over ent:Company (subsidiaries / investments), NOT a
+         personal brokerage account; CreditScore is a CORPORATE rating of an
+         ent:Company, never a personal credit score (which would be Restricted). -->
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#Portfolio">
+        <rdfs:label>Portfolio</rdfs:label>
+        <rdfs:comment>The set of business units and investments an executive oversees —
+            a grouping over ent:Company, not a personal brokerage account.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#PortfolioHolding">
+        <rdfs:label>Portfolio Holding</rdfs:label>
+        <rdfs:comment>One line item within a Portfolio — an equity, subsidiary, fund or
+            cash position, with its market value and weight.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/finance#CreditScore">
+        <rdfs:label>Credit Score</rdfs:label>
+        <rdfs:comment>Corporate creditworthiness of an ent:Company — an agency rating or
+            internal score. NOT a personal credit score, which would be gov:Restricted
+            and refused rather than granted.</rdfs:comment>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#inDataDomain"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+        <rdfs:subClassOf>
+            <owl:Restriction>
+                <owl:onProperty rdf:resource="http://orphos.eip/ontology/governance#hasSensitivity"/>
+                <owl:hasValue rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+            </owl:Restriction>
+        </rdfs:subClassOf>
+    </owl:Class>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#hasHolding">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Portfolio"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#inPortfolio">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/finance#hasHolding"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/finance#Portfolio"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#portfolioOwnedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Portfolio"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Company"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#holdingInvestsIn">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Company"/>
+        <rdfs:comment>The company a holding represents (a subsidiary or investee).</rdfs:comment>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/finance#creditScoreFor">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CreditScore"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Company"/>
+    </owl:ObjectProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#portfolioType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Portfolio"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>STRATEGIC | FINANCIAL.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#baseCurrency">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#Portfolio"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#marketValue">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+        <rdfs:comment>No domain: both Portfolio (rolled up) and PortfolioHolding carry it.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#costBasis">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#weightPct">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#assetClass">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#PortfolioHolding"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>EQUITY | SUBSIDIARY | FUND | CASH.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#asOfDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+        <rdfs:comment>No domain: Portfolio, PortfolioHolding and CreditScore are all as-of a date.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#creditRating">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CreditScore"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>Agency scale, e.g. AAA…D.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#creditScoreValue">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CreditScore"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/finance#creditProvider">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/finance#CreditScore"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <!-- ===================== Alignment with zenitus.owl =====================
+         The Zenitus tenant already loads finance facts against its own local
+         terms. Aligning rather than replacing means that data keeps working and
+         becomes visible to the shared persona rules at the same time. -->
+    <owl:Class rdf:about="https://orphos.io/ontology/zenitus#CashFlowMonth">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/finance#CashFlowEntry"/>
+        <rdfs:comment>Zenitus's monthly cash flow IS a fin:CashFlowEntry, so it
+            inherits the Treasury domain and Confidential sensitivity and is
+            covered by the CFO/CEO grants with no per-tenant rule.</rdfs:comment>
+    </owl:Class>
+
+</rdf:RDF>

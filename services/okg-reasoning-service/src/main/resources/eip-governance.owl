@@ -1,0 +1,1084 @@
+<?xml version="1.0"?>
+<!--
+  EIP Governance Ontology — the persona / RBAC / measurement meta-layer.
+
+  This is the file that makes "who may see what" a QUERYABLE, REASONED fact
+  instead of a hand-maintained Java map. Today RBAC lives in two places that
+  must be kept in sync by hand:
+    - AccessPolicy.buildGroupOf()  (libs/eip-common) — role -> UI resource key
+    - DashboardLayoutService.CATALOG (widgets-service) — a static widget list
+  Neither knows anything about DATA. A CFO and a CTO currently resolve to the
+  same widgets and the same graph rows. This ontology closes that gap.
+
+  ── The three joins to the running platform ────────────────────────────────
+  Every term here is designed to join to something that already exists, so the
+  ontology can be adopted incrementally rather than as a big-bang replacement:
+
+    gov:roleKey      -> a Keycloak realm role name (RoleAdminService.DEFAULT_ROLE_KEYS)
+    gov:resourceKey  -> an AccessPolicy resource key (admin tab / dashboard section)
+    gov:widgetKey    -> a DashboardLayoutService.CATALOG widget id
+
+  ── What is genuinely OWL-inferred here (not just modelled) ────────────────
+  1. gov:inheritsFrom is a TransitiveProperty, so the persona chain
+       ceo -> executive -> viewer -> guest
+     means a CEO inherits every domain, capability and widget granted to
+     Executive and Viewer WITHOUT restating them. Add one grant to Viewer and
+     every persona above it gains it, computed by the reasoner.
+
+  2. gov:subDomainOf is transitive with inverse gov:hasSubDomain, so granting
+     a persona FINANCE also grants Budget / Treasury / GeneralLedger / Tax.
+     Domain grants are therefore coarse to write and fine to enforce.
+
+  3. The owl:hasValue restriction pattern (used throughout the domain files —
+     see eip-finance.owl et al.) is what makes classification automatic:
+
+         fin:Expense rdfs:subClassOf
+             [ owl:onProperty gov:inDataDomain ; owl:hasValue gov:DomainFinance ]
+
+     Every fin:Expense instance is INFERRED to be gov:inDataDomain
+     gov:DomainFinance. No loader has to stamp a domain onto each row, and no
+     row can be forgotten — which is exactly the property an access-control
+     classification needs. The same pattern carries gov:hasSensitivity.
+
+  4. Combined with the EXISTING ent:reportsTo transitivity (eip-enterprise.owl),
+     gov:embodiedBy gives org-scoped row filtering for free: resolve the
+     persona to its ent:Executive, walk the inferred ent:hasReport closure, and
+     you have "everyone under this person" as a filter — no Java tree walking.
+
+  ── PII note ──────────────────────────────────────────────────────────────
+  Consistent with eip-enterprise.owl and OkgGraphRepository.upsertPerson, no
+  class here carries an email, phone, government id, or any other personal
+  identifier. gov:embodiedBy points at an ent:Person, which itself holds only a
+  display name and job title. Per-person compensation is deliberately NOT
+  modelled anywhere in this ontology family — see the header of eip-hr.owl.
+
+  ── Fixed vocabulary vs tenant data ───────────────────────────────────────
+  The instances declared at the bottom of this file (sensitivity levels, data
+  domains, personas, widgets, metrics) are PLATFORM-FIXED vocabulary — the same
+  in every tenant, so they belong in the schema where the reasoner can see them.
+  Tenant-specific facts (gov:AccessGrant overrides, gov:MetricObservation
+  values) live in ArcadeDB and are loaded per tenant, exactly like the Ent*
+  vertices written by EnterpriseGraphRepository.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/governance#"
+     xml:base="http://orphos.eip/ontology/governance"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:ent="http://orphos.eip/ontology/enterprise#"
+     xmlns:gov="http://orphos.eip/ontology/governance#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/governance"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#Persona">
+        <rdfs:label>Persona</rdfs:label>
+        <rdfs:comment>A role-shaped viewpoint onto the enterprise — CEO, CTO, CFO,
+            Admin and so on. A Persona is the bridge between an authentication
+            role (gov:roleKey, a Keycloak realm role) and the data that role is
+            meant to see (gov:canAccessDomain, gov:watchesMetric,
+            gov:showsWidget). Personas form an inheritance chain via
+            gov:inheritsFrom.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#DataDomain">
+        <rdfs:label>Data Domain</rdfs:label>
+        <rdfs:comment>A subject area of enterprise data — Finance, HR, IT,
+            Commercial, Strategy, Risk, Enterprise, Governance. The unit at which
+            data access is granted. Nests via gov:subDomainOf so a grant on a
+            parent domain covers its children.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#SensitivityLevel">
+        <rdfs:label>Sensitivity Level</rdfs:label>
+        <rdfs:comment>How sensitive a class of data is: Public, Internal,
+            Confidential, Restricted. Ordered by gov:sensitivityRank so a
+            persona's gov:maxSensitivity can be compared numerically in SPARQL or
+            SQL. This is the SECOND access axis: a persona may hold a domain but
+            still be filtered out of its most sensitive members.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#Capability">
+        <rdfs:label>Capability</rdfs:label>
+        <rdfs:comment>A grantable platform surface — an admin tab or a user
+            dashboard section. gov:resourceKey and gov:groupKey mirror the keys in
+            AccessPolicy.buildGroupOf(), so this class is the ontology's
+            representation of the map that is hand-maintained in Java today.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#Widget">
+        <rdfs:label>Widget</rdfs:label>
+        <rdfs:comment>A dashboard widget. gov:widgetKey is exactly a
+            DashboardLayoutService.CATALOG id, so a persona-scoped layout can be
+            derived from the graph and fed to the existing widget board without
+            changing any widget id.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#Metric">
+        <rdfs:label>Metric</rdfs:label>
+        <rdfs:comment>A measurable indicator (KPI) — the DEFINITION only: what it
+            measures, its unit, whether higher is better, which domain it belongs
+            to, and which widget renders it. Values are gov:MetricObservation
+            instances, so the definition is stable schema while the numbers are
+            tenant data.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#MetricObservation">
+        <rdfs:label>Metric Observation</rdfs:label>
+        <rdfs:comment>One value of one Metric for one Period, optionally scoped to
+            an org unit. Inherits the metric's domain and sensitivity through
+            gov:observationOf, which is what lets a single RBAC rule filter every
+            number on every dashboard.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#Period">
+        <rdfs:label>Period</rdfs:label>
+        <rdfs:comment>A reporting period — month, quarter, fiscal year. Shared as
+            ONE time axis across Finance, HR, Commercial and IT so a CEO
+            dashboard can put a cash-flow month and a headcount month on the same
+            row without any cross-domain date arithmetic.</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/governance#AccessGrant">
+        <rdfs:label>Access Grant</rdfs:label>
+        <rdfs:comment>A reified, tenant-editable allow/deny of one persona on one
+            target (a Capability, DataDomain, or Widget). Reified rather than a
+            plain triple so a grant can carry an effect, a row-level scope, and
+            provenance — the graph equivalent of the AccessGrant rows that
+            AccessControlService writes today.</rdfs:comment>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <!-- Persona inheritance: transitive + inverse. See header note 1. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#inheritsFrom">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:label>inherits from</rdfs:label>
+        <rdfs:comment>The persona whose access this persona also holds. Transitive,
+            so ceo -> executive -> viewer yields the full closure.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#inheritedBy">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/governance#inheritsFrom"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+    </owl:ObjectProperty>
+
+    <!-- Domain hierarchy: transitive + inverse. See header note 2. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#subDomainOf">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#hasSubDomain">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/governance#subDomainOf"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+    </owl:ObjectProperty>
+
+    <!-- Classification. Deliberately WITHOUT rdfs:domain: these are asserted on
+         (or inferred for) entities in every domain namespace — fin:, hr:, com:,
+         str:, rsk:, ent:, eip: — and a single-class domain would let the
+         reasoner mis-type every subject, the same reasoning as ent:locatedAt. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#inDataDomain">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+        <rdfs:label>in data domain</rdfs:label>
+        <rdfs:comment>The subject area this thing belongs to. Normally INFERRED
+            from the owl:hasValue restriction on its class rather than asserted
+            per instance — see header note 3.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#hasSensitivity">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#SensitivityLevel"/>
+        <rdfs:label>has sensitivity</rdfs:label>
+        <rdfs:comment>How sensitive this thing is. Like gov:inDataDomain, usually
+            inferred from a class-level owl:hasValue restriction.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- Data ownership, for org-scoped filtering. No domain: every domain class
+         can be owned by an org unit. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#ownedByOrgUnit">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#OrgUnit"/>
+        <rdfs:label>owned by org unit</rdfs:label>
+        <rdfs:comment>The org unit accountable for this record. Combined with
+            ent:subUnitOf transitivity, a grant scoped to a division covers every
+            department and team beneath it.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- Persona bindings -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#embodiedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/enterprise#Person"/>
+        <rdfs:label>embodied by</rdfs:label>
+        <rdfs:comment>The actual person holding this persona in a given tenant —
+            e.g. the CEO persona embodied by a specific ent:Executive. This is the
+            hook that turns "show me my org's numbers" into a graph walk over the
+            inferred ent:hasReport / ent:hasSubUnit closure. Tenant fact, not
+            platform vocabulary.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#canAccessDomain">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+        <rdfs:label>can access domain</rdfs:label>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#maxSensitivity">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#SensitivityLevel"/>
+        <rdfs:label>maximum sensitivity</rdfs:label>
+        <rdfs:comment>The most sensitive level this persona may read. Enforced by
+            comparing gov:sensitivityRank, so a persona with Internal never sees a
+            Confidential row even inside a domain it holds.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#hasCapability">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:label>has capability</rdfs:label>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#watchesMetric">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:label>watches metric</rdfs:label>
+        <rdfs:comment>A metric this persona cares about by default — the seed for a
+            persona's default dashboard, distinct from what it is merely PERMITTED
+            to see. Relevance and permission are separate concerns.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#watchedBy">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/governance#watchesMetric"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#accountableFor">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:label>accountable for</rdfs:label>
+        <rdfs:comment>The persona that OWNS the number, as opposed to merely
+            watching it — the CFO owns Net Cash Flow, the CTO owns SLA Health.
+            Drives "whose problem is this" routing for alerts and decisions.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- Metric / widget wiring -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#renderedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Widget"/>
+        <rdfs:label>rendered by</rdfs:label>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#renders">
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/governance#renderedBy"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Widget"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#observationOf">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#MetricObservation"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#forPeriod">
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:comment>No domain: observations, budgets, payroll runs, pipeline
+            snapshots and cash-flow months all sit in a Period.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#withinPeriod">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:label>within period</rdfs:label>
+        <rdfs:comment>Month within quarter within fiscal year. Transitive, so a
+            month rolls up to its fiscal year without date arithmetic — the time
+            equivalent of ent:subUnitOf.</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#containsPeriod">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/governance#withinPeriod"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#capabilityInGroup">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:comment>Tab -> group, mirroring AccessPolicy.groupOf().</rdfs:comment>
+    </owl:ObjectProperty>
+
+    <!-- Reified grants -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#grantTo">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#grantOnCapability">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#grantOnDomain">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#DataDomain"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/governance#grantOnWidget">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/governance#Widget"/>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <!-- Shared identity/labels — no domain, mirroring ent:externalId et al. -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#tenantId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#name">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#description">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <!-- The three join keys to the running platform -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#roleKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>The Keycloak realm role this persona maps to, e.g. "cfo".
+            Must match a role in RoleAdminService.DEFAULT_ROLE_KEYS (or a custom
+            tenant role) or the persona can never be resolved from a JWT.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#resourceKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>An AccessPolicy resource key, e.g. "data-sources".</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#groupKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#locked">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Capability"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment>True for platform-admin-only surfaces that are never grantable
+            to another role — the mirror of AccessPolicy.LOCKED_RESOURCES. Carried
+            here so the graph copy of the capability catalogue cannot quietly
+            represent a locked tab as grantable.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#widgetKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Widget"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>A DashboardLayoutService.CATALOG widget id, e.g. "net-cashflow".</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#metricKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <!-- Persona / capability presentation -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#personaLabel">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#displayOrder">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#isDefaultVisible">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment>Whether a widget is on by default for a persona that watches
+            its metric — the seed for DashboardLayoutService's visibleIds.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#roleProvisioned">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Persona"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment>False for personas whose gov:roleKey is NOT yet a seeded
+            Keycloak realm role (see KeycloakProvisioningClient.REALM_ROLES).
+            Kept explicit so the ontology never silently promises access that no
+            JWT can actually carry.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- Sensitivity ordering -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#sensitivityRank">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#SensitivityLevel"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+        <rdfs:comment>0 = Public .. 3 = Restricted. Higher is more sensitive; a
+            persona may read a level iff rank &lt;= its maxSensitivity rank.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- Metric definition -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#unit">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>e.g. PERCENT, COUNT, CURRENCY, DAYS, RATIO.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#aggregation">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>How the metric rolls up: SUM, AVG, LAST, COUNT, RATIO.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#higherIsBetter">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Metric"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+        <rdfs:comment>Direction of goodness — lets one generic RAG rule colour
+            every widget instead of per-widget logic.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- Observation values -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#value">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#targetValue">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#ragStatus">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>RED, AMBER, GREEN. Shared with str:Initiative and
+            str:Project so "what is red" is one query across strategy and
+            metrics.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#currency">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>ISO 4217. Declared here (not per domain) so Finance, HR and
+            Commercial amounts share one currency property.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- Period -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#periodKey">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>Stable key, e.g. "FY2026", "FY2026-Q1", "2026-04".</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#periodType">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#Period"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>MONTH, QUARTER, FISCAL_YEAR.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#startDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#endDate">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </owl:DatatypeProperty>
+
+    <!-- Grants -->
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#effect">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>allow | deny — the same vocabulary AccessPolicy uses, so a
+            graph grant and a DB grant row mean exactly the same thing.</rdfs:comment>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/governance#accessScope">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/governance#AccessGrant"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+        <rdfs:comment>Row-level scope: ALL | OWN_ORG_UNIT | OWN_ORG_SUBTREE |
+            OWN_REPORTS | OWN_BRANCH. Resolved against gov:embodiedBy plus the
+            inferred ent:subUnitOf / ent:reportsTo closures.</rdfs:comment>
+    </owl:DatatypeProperty>
+
+    <!-- =================== Fixed vocabulary: sensitivity =================== -->
+
+    <gov:SensitivityLevel rdf:about="http://orphos.eip/ontology/governance#Public">
+        <gov:name>Public</gov:name>
+        <gov:sensitivityRank rdf:datatype="http://www.w3.org/2001/XMLSchema#int">0</gov:sensitivityRank>
+        <gov:description>Publishable outside the company — mission, vision, values, branches.</gov:description>
+    </gov:SensitivityLevel>
+
+    <gov:SensitivityLevel rdf:about="http://orphos.eip/ontology/governance#Internal">
+        <gov:name>Internal</gov:name>
+        <gov:sensitivityRank rdf:datatype="http://www.w3.org/2001/XMLSchema#int">1</gov:sensitivityRank>
+        <gov:description>Any employee may see it — org structure, headcount totals, SLA health.</gov:description>
+    </gov:SensitivityLevel>
+
+    <gov:SensitivityLevel rdf:about="http://orphos.eip/ontology/governance#Confidential">
+        <gov:name>Confidential</gov:name>
+        <gov:sensitivityRank rdf:datatype="http://www.w3.org/2001/XMLSchema#int">2</gov:sensitivityRank>
+        <gov:description>Management only — budgets, revenue, pipeline, contract values, aggregate payroll.</gov:description>
+    </gov:SensitivityLevel>
+
+    <gov:SensitivityLevel rdf:about="http://orphos.eip/ontology/governance#Restricted">
+        <gov:name>Restricted</gov:name>
+        <gov:sensitivityRank rdf:datatype="http://www.w3.org/2001/XMLSchema#int">3</gov:sensitivityRank>
+        <gov:description>Never exposed through the graph or NL query to ANY persona in this
+            design — individual compensation, individual performance ratings, open audit findings
+            naming a person. Modelled so such data can be recognised and refused, not served.</gov:description>
+    </gov:SensitivityLevel>
+
+    <!-- ==================== Fixed vocabulary: domains ==================== -->
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainEnterprise">
+        <gov:name>Enterprise</gov:name>
+        <gov:description>The company itself: mission, vision, values, org structure, branches, clients, engagements (eip-enterprise.owl).</gov:description>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainFinance">
+        <gov:name>Finance</gov:name>
+        <gov:description>Budgets, general ledger, cash flow, tax (eip-finance.owl).</gov:description>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainBudget">
+        <gov:name>Budget</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainTreasury">
+        <gov:name>Treasury</gov:name>
+        <gov:description>Cash flow, liquidity, receivables and payables.</gov:description>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainGeneralLedger">
+        <gov:name>General Ledger</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainHr">
+        <gov:name>Human Resources</gov:name>
+        <gov:description>People, positions, headcount, talent (eip-hr.owl).</gov:description>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainHeadcount">
+        <gov:name>Headcount</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainPayroll">
+        <gov:name>Payroll</gov:name>
+        <gov:description>Compensation cost. AGGREGATE ONLY by design — see eip-hr.owl.</gov:description>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainTalent">
+        <gov:name>Talent</gov:name>
+        <gov:description>Skills, training, recruitment, attrition.</gov:description>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainIt">
+        <gov:name>Information Technology</gov:name>
+        <gov:description>Systems, incidents, SLAs, assets, security (eip-core.owl + eip-itops.owl).</gov:description>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainItOperations">
+        <gov:name>IT Operations</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainIt"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainItAssets">
+        <gov:name>IT Assets</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainIt"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainItSecurity">
+        <gov:name>IT Security</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainIt"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainItSpend">
+        <gov:name>IT Spend</gov:name>
+        <gov:description>Deliberately a subdomain of BOTH IT and Finance: it is the
+            one slice of the finance ledger a CTO must see, and modelling it as a
+            shared child means the CTO grant on IT reaches it without opening the
+            whole ledger.</gov:description>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainIt"/>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainCommercial">
+        <gov:name>Commercial</gov:name>
+        <gov:description>Pipeline, contracts, orders, revenue by client (eip-commercial.owl).</gov:description>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainPipeline">
+        <gov:name>Pipeline</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainCommercial"/>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainContracts">
+        <gov:name>Contracts</gov:name>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainCommercial"/>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainStrategy">
+        <gov:name>Strategy</gov:name>
+        <gov:description>Objectives, key results, initiatives, portfolio, decisions (eip-strategy.owl).</gov:description>
+    </gov:DataDomain>
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainPortfolio">
+        <gov:name>Portfolio</gov:name>
+        <gov:description>Programmes, projects, milestones and their RAG status.</gov:description>
+        <gov:subDomainOf rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainRisk">
+        <gov:name>Risk and Compliance</gov:name>
+        <gov:description>Risk register, controls, compliance obligations, audits (eip-risk.owl).</gov:description>
+    </gov:DataDomain>
+
+    <gov:DataDomain rdf:about="http://orphos.eip/ontology/governance#DomainGovernance">
+        <gov:name>Platform Governance</gov:name>
+        <gov:description>The platform's own configuration: tenants, roles, access
+            grants, data sources, prompts. The Admin persona's domain — note it is
+            NOT a parent of the business domains, which is the deliberate
+            statement that administering the platform does not confer the right to
+            read the company's numbers.</gov:description>
+    </gov:DataDomain>
+
+    <!-- ==================== Fixed vocabulary: personas ====================
+         The inheritsFrom chain is the whole point: grants written once low in
+         the chain are inherited upward by the reasoner. Only the DELTA is
+         declared on each persona.
+
+         guest -> viewer -> executive -> {ceo, cfo, cto, coo, chro}
+         admin sits beside the chain (platform governance, not business data).
+    -->
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaGuest">
+        <gov:name>Guest</gov:name>
+        <gov:personaLabel>Guest</gov:personaLabel>
+        <gov:roleKey>guest</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">90</gov:displayOrder>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Public"/>
+        <gov:description>Signed in but not yet granted anything. Public data only.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaViewer">
+        <gov:name>Viewer</gov:name>
+        <gov:personaLabel>Viewer</gov:personaLabel>
+        <gov:roleKey>viewer</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">80</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaGuest"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainEnterprise"/>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaExecutive">
+        <gov:name>Executive</gov:name>
+        <gov:personaLabel>Executive</gov:personaLabel>
+        <gov:roleKey>executive</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">50</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaViewer"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+        <gov:description>A generic senior leader with no functional specialism: strategy
+            and enterprise context at Internal sensitivity. The floor that every
+            C-level persona builds on.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCeo">
+        <gov:name>CEO</gov:name>
+        <gov:personaLabel>CEO</gov:personaLabel>
+        <gov:roleKey>ceo</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">10</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainCommercial"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+        <gov:description>Executive, finance, commercial and risk domains at Confidential —
+            not technology or people detail (the CTO's and CHRO's; critical items from
+            those areas still reach the CEO by escalation). NOT Restricted, so
+            individual compensation and individual performance ratings stay out of
+            reach of the CEO too. Not Platform Governance either: running the
+            company is not administering the platform.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCfo">
+        <gov:name>CFO</gov:name>
+        <gov:personaLabel>CFO</gov:personaLabel>
+        <gov:roleKey>cfo</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">20</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainFinance"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPayroll"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainCommercial"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainRisk"/>
+        <gov:description>Whole finance tree, commercial revenue and contracts, risk — plus
+            Payroll specifically (the cost line) without the rest of HR.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCto">
+        <gov:name>CTO</gov:name>
+        <gov:personaLabel>CTO</gov:personaLabel>
+        <gov:roleKey>cto</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">30</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainIt"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+        <gov:description>Whole IT tree (operations, assets, security AND IT spend, which is
+            a shared child of Finance) plus the delivery portfolio. No access to
+            the general ledger, payroll or pipeline.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCoo">
+        <gov:name>COO</gov:name>
+        <gov:personaLabel>COO</gov:personaLabel>
+        <gov:roleKey>coo</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">40</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainCommercial"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+        <gov:description>Delivery and operations. roleProvisioned=false: 'coo' is not in
+            KeycloakProvisioningClient.REALM_ROLES yet.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaChro">
+        <gov:name>CHRO</gov:name>
+        <gov:personaLabel>CHRO</gov:personaLabel>
+        <gov:roleKey>chro</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">45</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHr"/>
+        <gov:description>Whole HR tree at Confidential — aggregate payroll included,
+            individual compensation still not, because that is Restricted and no
+            persona holds Restricted. roleProvisioned=false.</gov:description>
+    </gov:Persona>
+
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaAdmin">
+        <gov:name>Admin</gov:name>
+        <gov:personaLabel>Admin</gov:personaLabel>
+        <gov:roleKey>admin</gov:roleKey>
+        <gov:roleProvisioned rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:roleProvisioned>
+        <gov:displayOrder rdf:datatype="http://www.w3.org/2001/XMLSchema#int">5</gov:displayOrder>
+        <gov:inheritsFrom rdf:resource="http://orphos.eip/ontology/governance#PersonaViewer"/>
+        <gov:maxSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:canAccessDomain rdf:resource="http://orphos.eip/ontology/governance#DomainGovernance"/>
+        <gov:description>Configures the platform: tenants' roles, access grants, data
+            sources, prompts, branding. Deliberately holds NO business domain
+            beyond what Viewer gives — an admin can wire up a finance data source
+            without being able to read the finance numbers. Note this is a
+            TIGHTENING of today's behaviour, where AccessPolicy.roleDefault()
+            returns "allow" for every group when role == "admin".</gov:description>
+    </gov:Persona>
+
+    <!-- ==================== Fixed vocabulary: widgets ======================
+         gov:widgetKey values are exactly the ids in
+         DashboardLayoutService.CATALOG — no new ids invented, so a
+         persona-derived layout drops straight into the existing widget board.
+    -->
+
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetUptime">
+        <gov:widgetKey>uptime</gov:widgetKey>
+        <gov:name>System Uptime</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetBudget">
+        <gov:widgetKey>budget</gov:widgetKey>
+        <gov:name>IT Budget Consumed</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItSpend"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetIncidents">
+        <gov:widgetKey>incidents</gov:widgetKey>
+        <gov:name>Active Incidents</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetRagRed">
+        <gov:widgetKey>rag-red</gov:widgetKey>
+        <gov:name>Projects at Risk</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetPendingDecisions">
+        <gov:widgetKey>pending-decisions</gov:widgetKey>
+        <gov:name>Pending Decisions</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetAlerts">
+        <gov:widgetKey>alerts</gov:widgetKey>
+        <gov:name>Active Alerts</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetSlaHealth">
+        <gov:widgetKey>sla-health</gov:widgetKey>
+        <gov:name>SLA Health</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetSystemHealth">
+        <gov:widgetKey>system-health</gov:widgetKey>
+        <gov:name>IT System Health</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetBudgetVariance">
+        <gov:widgetKey>budget-variance</gov:widgetKey>
+        <gov:name>Budget Variance</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainBudget"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetHeadcount">
+        <gov:widgetKey>headcount</gov:widgetKey>
+        <gov:name>Total Headcount</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetHeadcountDept">
+        <gov:widgetKey>headcount-dept</gov:widgetKey>
+        <gov:name>Headcount by Department</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetPayroll">
+        <gov:widgetKey>payroll</gov:widgetKey>
+        <gov:name>Annual Payroll</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPayroll"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetNetCashflow">
+        <gov:widgetKey>net-cashflow</gov:widgetKey>
+        <gov:name>Net Cash Flow</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetCashInflow">
+        <gov:widgetKey>cash-inflow</gov:widgetKey>
+        <gov:name>Cash Inflow</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+    </gov:Widget>
+    <gov:Widget rdf:about="http://orphos.eip/ontology/governance#WidgetCashOutflow">
+        <gov:widgetKey>cash-outflow</gov:widgetKey>
+        <gov:name>Cash Outflow</gov:name>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+    </gov:Widget>
+
+    <!-- ==================== Fixed vocabulary: metrics ======================
+         One Metric per existing widget, so every widget on the board has a
+         definition with a domain, a direction and an accountable persona. New
+         metrics that need NEW widget ids are listed in ontology/README.md
+         rather than invented here, to keep this file in step with the running
+         CATALOG.
+    -->
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricUptime">
+        <gov:metricKey>it.uptime.pct</gov:metricKey>
+        <gov:name>System Uptime</gov:name>
+        <gov:unit>PERCENT</gov:unit>
+        <gov:aggregation>AVG</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetUptime"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCoo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricItBudgetConsumed">
+        <gov:metricKey>it.budget.consumed.pct</gov:metricKey>
+        <gov:name>IT Budget Consumed</gov:name>
+        <gov:unit>PERCENT</gov:unit>
+        <gov:aggregation>LAST</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItSpend"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetBudget"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricActiveIncidents">
+        <gov:metricKey>it.incidents.active</gov:metricKey>
+        <gov:name>Active Incidents</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>COUNT</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetIncidents"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCoo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricProjectsAtRisk">
+        <gov:metricKey>portfolio.projects.red</gov:metricKey>
+        <gov:name>Projects at Risk</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>COUNT</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPortfolio"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetRagRed"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCoo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricPendingDecisions">
+        <gov:metricKey>strategy.decisions.pending</gov:metricKey>
+        <gov:name>Pending Decisions</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>COUNT</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainStrategy"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetPendingDecisions"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaExecutive"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricActiveAlerts">
+        <gov:metricKey>it.alerts.active</gov:metricKey>
+        <gov:name>Active Alerts</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>COUNT</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetAlerts"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricSlaHealth">
+        <gov:metricKey>it.sla.compliance.pct</gov:metricKey>
+        <gov:name>SLA Health</gov:name>
+        <gov:unit>PERCENT</gov:unit>
+        <gov:aggregation>AVG</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetSlaHealth"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCoo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricSystemHealth">
+        <gov:metricKey>it.systems.degraded</gov:metricKey>
+        <gov:name>IT System Health</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>COUNT</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainItOperations"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetSystemHealth"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCto"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricBudgetVariance">
+        <gov:metricKey>fin.budget.variance</gov:metricKey>
+        <gov:name>Budget Variance</gov:name>
+        <gov:unit>CURRENCY</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainBudget"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetBudgetVariance"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricHeadcount">
+        <gov:metricKey>hr.headcount.total</gov:metricKey>
+        <gov:name>Total Headcount</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>LAST</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetHeadcount"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaChro"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCoo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricHeadcountByDept">
+        <gov:metricKey>hr.headcount.by-dept</gov:metricKey>
+        <gov:name>Headcount by Department</gov:name>
+        <gov:unit>COUNT</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainHeadcount"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Internal"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetHeadcountDept"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaChro"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricAnnualPayroll">
+        <gov:metricKey>hr.payroll.annual</gov:metricKey>
+        <gov:name>Annual Payroll</gov:name>
+        <gov:unit>CURRENCY</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainPayroll"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetPayroll"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaChro"/>
+        <gov:description>An AGGREGATE only — the sum of a compensation cost across a
+            population, never a per-person figure. Confidential, not Restricted,
+            precisely because it is an aggregate.</gov:description>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricNetCashflow">
+        <gov:metricKey>fin.cashflow.net</gov:metricKey>
+        <gov:name>Net Cash Flow</gov:name>
+        <gov:unit>CURRENCY</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetNetCashflow"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCeo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricCashInflow">
+        <gov:metricKey>fin.cashflow.inflow</gov:metricKey>
+        <gov:name>Cash Inflow</gov:name>
+        <gov:unit>CURRENCY</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetCashInflow"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+    </gov:Metric>
+
+    <gov:Metric rdf:about="http://orphos.eip/ontology/governance#MetricCashOutflow">
+        <gov:metricKey>fin.cashflow.outflow</gov:metricKey>
+        <gov:name>Cash Outflow</gov:name>
+        <gov:unit>CURRENCY</gov:unit>
+        <gov:aggregation>SUM</gov:aggregation>
+        <gov:higherIsBetter rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</gov:higherIsBetter>
+        <gov:inDataDomain rdf:resource="http://orphos.eip/ontology/governance#DomainTreasury"/>
+        <gov:hasSensitivity rdf:resource="http://orphos.eip/ontology/governance#Confidential"/>
+        <gov:renderedBy rdf:resource="http://orphos.eip/ontology/governance#WidgetCashOutflow"/>
+        <gov:watchedBy rdf:resource="http://orphos.eip/ontology/governance#PersonaCfo"/>
+    </gov:Metric>
+
+    <!-- Metric ownership — who the number belongs to, distinct from who watches it. -->
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCfo">
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricNetCashflow"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricCashInflow"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricCashOutflow"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricBudgetVariance"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricAnnualPayroll"/>
+    </gov:Persona>
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCto">
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricUptime"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricSlaHealth"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricSystemHealth"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricActiveIncidents"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricActiveAlerts"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricItBudgetConsumed"/>
+    </gov:Persona>
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaChro">
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricHeadcount"/>
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricHeadcountByDept"/>
+    </gov:Persona>
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCoo">
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricProjectsAtRisk"/>
+    </gov:Persona>
+    <gov:Persona rdf:about="http://orphos.eip/ontology/governance#PersonaCeo">
+        <gov:accountableFor rdf:resource="http://orphos.eip/ontology/governance#MetricPendingDecisions"/>
+    </gov:Persona>
+
+</rdf:RDF>

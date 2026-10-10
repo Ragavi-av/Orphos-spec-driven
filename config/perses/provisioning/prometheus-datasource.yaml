@@ -1,0 +1,9 @@
+kind: GlobalDatasource
+metadata:
+  name: prometheus
+spec:
+  default: true
+  plugin:
+    kind: PrometheusDatasource
+    spec:
+      directUrl: http://eip-prometheus:9090

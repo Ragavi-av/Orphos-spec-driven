@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/travel_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="16dp"
+    android:orientation="horizontal">
+
+    <!-- Timeline column -->
+    <LinearLayout
+        android:layout_width="52dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="4dp">
+        <TextView
+            android:id="@+id/travel_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            tools:text="6:30\nAM" />
+        <View
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/circle_icon"
+            android:backgroundTint="@color/primary" />
+    </LinearLayout>
+
+    <!-- Travel card -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="@drawable/card_bg"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/travel_route"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium" android:textColor="@color/text"
+                    android:textSize="16sp" android:textStyle="bold" tools:text="Bangalore → Delhi" />
+                <TextView
+                    android:id="@+id/travel_sub"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" android:textColor="@color/text_muted"
+                    android:textSize="12sp" tools:text="Flight · Fri, 15 Aug · 6:30 AM" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/travel_status"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/chip_soft"
+                android:fontFamily="sans-serif-medium"
+                android:paddingHorizontal="10dp" android:paddingVertical="4dp"
+                android:textAllCaps="true" android:textSize="10sp"
+                android:letterSpacing="0.05"
+                tools:text="CONFIRMED" tools:textColor="@color/green" />
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="6dp"
+                android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+        </LinearLayout>
+
+        <!-- Purpose -->
+        <TextView
+            android:id="@+id/travel_purpose"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/card_bg_2"
+            android:lineSpacingMultiplier="1.35"
+            android:padding="12dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            tools:text="Board offsite" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,63 @@
+{
+  "realm": "platform",
+  "displayName": "Orphos Platform",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "roles": {
+    "realm": [
+      { "name": "platform_admin", "description": "Cross-tenant platform superadmin — manages tenants, services and platform-wide config." }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "orphos-spa",
+      "name": "Orphos Executive SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:3001/*",
+        "http://localhost:5173/*",
+        "http://ranjitham-kmn:3001/*",
+        "http://192.168.10.1:3001/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://ranjitham-kmn:3001",
+        "http://192.168.10.1:3001"
+      ],
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true
+    }
+  ],
+
+  "users": [
+    {
+      "username": "pa",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "pa@platform.local",
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "pa", "temporary": false }
+      ],
+      "realmRoles": ["platform_admin"]
+    }
+  ]
+}

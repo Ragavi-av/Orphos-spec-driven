@@ -1,0 +1,7 @@
+services:
+  platform-registry:
+    environment:
+      - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=c9fc9b7f4ef5fbfc196396066cb663a1842305b64b315f78
+  platform-core:
+    environment:
+      - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=c9fc9b7f4ef5fbfc196396066cb663a1842305b64b315f78

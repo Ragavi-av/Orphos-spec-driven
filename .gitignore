@@ -1,0 +1,90 @@
+target/
+*.class
+*.jar
+*.war
+.env
+.env.example
+.gitignore
+.env.bak.*
+# Hyphen-suffixed backups too (.env.bak-lan, .env.bak-preremoteai, ...) — the
+# dotted pattern above does not match these, so they showed up as untracked.
+.env.bak-*
+.env.wizard-generated.*
+*.discarded
+*.pre-pull.bak
+backups/
+docs/
+*.log
+# Log4j2's RollingFile appender writes ${LOG_PATH:-logs}/<service>.log next to wherever the
+# service was started, and rolls it to .log.gz — which the *.log pattern above does not cover.
+logs/
+.idea/
+*.iml
+.kiro/
+*.md
+node_modules/
+frontend/shell/dist/
+frontend/remotes/*/dist/
+# Keycloak realm file with real secrets — generated locally, never committed
+config/keycloak/eip-realm-import.json
+# Per-installation instance config: instance identity, external DB endpoints and
+# plaintext secrets (Keycloak admin password, AI provider API keys). Machine-
+# specific, never the same on two installs — keep it local.
+orphos.config.json
+# Apache Jena Fuseki release tarball (~42 MB binary, not source). Fetched once
+# host-side and COPYed into the image, because archive.apache.org serves it at
+# single-digit KB/s from inside Docker. Re-fetch with:
+#   curl -fL -o config/fuseki/apache-jena-fuseki-5.1.0.tar.gz \
+#     https://archive.apache.org/dist/jena/binaries/apache-jena-fuseki-5.1.0.tar.gz
+config/fuseki/apache-jena-fuseki-*.tar.gz
+# ---------------------------------------------------------------------------
+# Distribution / packaging - all of it stays local, none of it is committed.
+# ---------------------------------------------------------------------------
+# Packager output trees. Each one is a full offline install bundle: saved Docker
+# image tarballs, a bundled JRE, the compose files and the ontology - tens of GB
+# per tree (distribution/ ~25 GB, distribution-v2/ ~28 GB at last build).
+# Regenerate with tools/distribution/build-distribution.ps1.
+/distribution/
+/distribution-v2/
+# Packaged bundles and their split parts, wherever a build drops them.
+Orphos*.zip
+Orphos*.zip.[0-9][0-9][0-9]
+# Loopback-connection probe scratch file emitted by the packager.
+LoopbackProbe.java
+LoopbackProbe.class
+# Repo-root launcher for the setup wizard. It only works once the wizard's
+# native app-image below has been built locally, so it is a local convenience,
+# not source. Drop this line if the launcher should ship in the repo instead.
+/Orphos Setup.bat
+# Setup-wizard native app-image build output (bundled JRE, ~140 MB) - built on demand.
+tools/setup-wizard/dist/
+tools/setup-wizard/docs/
+# The `distribution/` pattern above is unanchored, so it also covers the
+# packaging scripts in tools/distribution/ - intentional, they are local too.
+# ---------------------------------------------------------------------------
+# Mobile (Android app under mobile/android) - generated build output only.
+# The module also ships its own mobile/android/.gitignore, but this repo's
+# top .gitignore rule ignores nested .gitignore files, so those rules would
+# not survive a clone - duplicate the removable-artifact patterns here so the
+# ~135 MB of Gradle/build output never gets committed. Regenerate with a build
+# (mobile/android/gradlew assembleDebug). None of these are source.
+mobile/**/build/
+mobile/**/.gradle/
+mobile/**/.cxx/
+mobile/**/.kotlin/
+mobile/**/.externalNativeBuild/
+mobile/**/captures/
+mobile/android/local.properties
+*.apk
+*.aab
+*.hprof
+# Keystores are secrets - never commit (debug.keystore is the one exception).
+*.keystore
+!**/debug.keystore
+
+# Real per-environment skill configs - commit only the .example files
+.claude/skills/*/*.config.json
+!.claude/skills/*/*.config.example.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+drivers/mysql-connector-j-*/

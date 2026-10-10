@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mvp-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+    <artifactId>eip-core-ai-client</artifactId>
+    <name>eip-core-ai-client</name>
+    <description>Thin client to nl-query-service's internal completion API — nl-query-service is the
+        platform's single AI-provider/configuration authority (ChatProviderRegistry, tenant/user
+        provider config, API keys); other services call through this client instead of embedding
+        their own LLM provider stack.</description>
+    <packaging>jar</packaging>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- TenantContextHolder lives here; a real compile-time dependency —
+             every consumer of this module already depends on eip-common anyway. -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-common</artifactId>
+        </dependency>
+        <!-- Log4j2 API only. log4j-core is NOT declared here: a library must not
+             pick the implementation for its consumers. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Library module: the exclusions above keep Logback from leaking into the services
+             (they all run Log4j2), but the binding itself is test-scope only so consumers stay
+             free to choose one — a library must not force a logging implementation on them. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <!-- Library module: skip the inherited Spring Boot repackage goal. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

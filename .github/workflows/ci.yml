@@ -1,0 +1,154 @@
+name: EIP MVP CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch — no point waiting for a build
+# that's already obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Verify runs unit tests; integration tests are gated on
+      # RUN_INTEGRATION_TESTS so the default job stays fast. The next
+      # job (integration-tests) runs them.
+      - name: Build + unit test
+        working-directory: eip-mvp
+        run: ./mvnw -B clean verify
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: eip-mvp/**/target/surefire-reports/
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Testcontainers needs the docker daemon. ubuntu-latest has it.
+      - name: Run integration tests (testcontainers)
+        working-directory: eip-mvp
+        env:
+          RUN_INTEGRATION_TESTS: 'true'
+        # admin-service's *IT suite was split between platform-core-service
+        # (tenant lifecycle/migration) and admin-console-service (repo
+        # isolation across branding/email) — see the admin-service
+        # decomposition in the modularization plan.
+        run: ./mvnw -B -pl services/platform-core-service,services/admin-console-service -am verify -Dtest='*IT'
+
+  docker-images:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - okg-ingest-service
+          - okg-reasoning-service
+          - graph-proxy-service
+          - nl-query-service
+          - priority-engine-service
+          - briefing-service
+          - agent-orchestrator-service
+          - decision-log-service
+          - notification-service
+          - platform-core-service
+          - admin-console-service
+          - widgets-service
+          - doc-ingest-service
+          - mail-insight-service
+          - platform-registry-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Build the service jar so the Dockerfile's COPY of the jar succeeds.
+      - name: Build service jar
+        working-directory: eip-mvp
+        run: ./mvnw -B -pl services/${{ matrix.service }} -am package -DskipTests
+
+      - name: Build docker image
+        working-directory: eip-mvp
+        run: docker build -t eip-${{ matrix.service }}:${{ github.sha }} services/${{ matrix.service }}
+
+  # frontend/ is an npm workspace (shell + packages/* + remotes/*) — `npm ci`
+  # MUST run from the workspace root so root package.json's fixed `workspaces`
+  # list (which names "shell" directly, not just a glob) resolves correctly.
+  # See frontend/shell/Dockerfile for the same constraint on the Docker side.
+  shell-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: eip-mvp/frontend/package-lock.json
+      - name: Install + build shell
+        working-directory: eip-mvp/frontend
+        run: |
+          npm ci
+          npm run build --workspace=shell
+
+  frontend-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        remote:
+          - ai-copilot
+          - email-scanner
+          - doc-ingest
+          - rag-search
+          - widgets
+          - decision-log
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: eip-mvp/frontend/package-lock.json
+      # Same workspace-root constraint as shell-build above.
+      - name: Install + build ${{ matrix.remote }}
+        working-directory: eip-mvp/frontend
+        run: |
+          npm ci
+          npm run build --workspace=remotes/${{ matrix.remote }}
+
+      - name: Build docker image
+        working-directory: eip-mvp/frontend
+        run: docker build -f remotes/${{ matrix.remote }}/Dockerfile -t eip-plugin-${{ matrix.remote }}:${{ github.sha }} .

@@ -1,0 +1,22 @@
+server:
+  port: ${ORPHOS_SETUP_PORT:8099}
+
+spring:
+  application:
+    name: orphos-setup-wizard
+  mvc:
+    async:
+      # The /api/run bring-up stream can run for many minutes (image builds +
+      # layered boot). Disable the async request timeout so it isn't cut off.
+      request-timeout: -1
+
+orphos:
+  setup:
+    # Where .env and orphos.config.json are written. Defaults to the process
+    # working directory — run the wizard from the repo root, or override with
+    # ORPHOS_SETUP_TARGET_DIR.
+    target-dir: ${ORPHOS_SETUP_TARGET_DIR:.}
+
+logging:
+  level:
+    io.orphos.eip.setup: INFO

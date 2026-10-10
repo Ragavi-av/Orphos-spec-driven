@@ -1,0 +1,25 @@
+{
+  "connections": [
+    {
+      "id": "arcadedb-bundled",
+      "name": "Bundled ArcadeDB",
+      "type": "ARCADEDB",
+      "host": "eip-arcadedb",
+      "port": 2480,
+      "user": "root",
+      "credentialRef": "eip/arcadedb#password",
+      "options": {}
+    },
+    {
+      "id": "postgres-bundled",
+      "name": "Bundled PostgreSQL",
+      "type": "POSTGRES",
+      "host": "eip-postgres",
+      "port": 5432,
+      "user": "postgres",
+      "credentialRef": "eip/arcadedb#password",
+      "options": {}
+    }
+  ],
+  "assignments": {}
+}

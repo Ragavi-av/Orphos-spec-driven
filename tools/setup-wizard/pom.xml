@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.orphos.eip</groupId>
+    <artifactId>eip-mvp-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>setup-wizard</artifactId>
+  <name>Orphos Setup Wizard</name>
+  <description>
+    Standalone pre-install tool that collects the platform's setup decisions,
+    validates external databases live, and writes a validated .env +
+    orphos.config.json. Runs BEFORE the stack — it deliberately depends on
+    nothing else in the reactor.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- Log4j2 API for application code. The logging *implementation* stays
+         Logback (spring-boot-starter-logging is deliberately not excluded here):
+         Boot's log4j-to-slf4j bridge routes these calls into it, so the wizard's
+         operator-facing console output is unchanged. Declared explicitly rather
+         than leaned on transitively via that bridge. -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+    </dependency>
+    <!-- JDBC validation of an external Postgres connection. Version managed by
+         the Spring Boot parent. Runtime-only: we load the driver reflectively
+         via DriverManager. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

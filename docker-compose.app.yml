@@ -1,0 +1,1689 @@
+networks:
+  eip-net:
+    external: true
+
+# KEYCLOAK_URL points to Keycloak inside the Docker network.
+# Services use this to fetch the JWKS endpoint for JWT validation.
+# Keycloak brokers Azure Entra ID login — services are Azure-agnostic.
+
+# Route every container's stdout to Fluent Bit via the Docker fluentd
+# log driver. async=true so containers never block if Fluent Bit is down;
+# Docker dual-logging keeps `docker logs` working locally.
+x-fluentd-logging: &flog
+  driver: fluentd
+  options:
+    fluentd-address: "localhost:24224"
+    fluentd-async: "true"
+    tag: "{{.Name}}"
+
+services:
+  # ── secrets-ready boot gate ─────────────────────────────────────────────────
+  # One-shot job that verifies every REQUIRED secret is present in Infisical
+  # before the app layer starts. platform-core depends_on this
+  # (service_completed_successfully); every other service depends_on
+  # platform-core (service_healthy), so the whole layer transitively waits for
+  # it. This replaces start.sh's sleep-and-poll with a real dependency edge, so
+  # a service can never boot with a blank secret and cache the failure (the
+  # tenant-creation 401 class of bug). See config/app/secrets-ready.sh.
+  secrets-ready:
+    image: curlimages/curl:8.10.1
+    container_name: eip-secrets-ready
+    logging: *flog
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - ./config/app/secrets-ready.sh:/secrets-ready.sh:ro
+    environment:
+      INFISICAL_HOST: http://eip-infisical:8080
+      INFISICAL_ENV: prod
+      # Secrets whose absence DEFINITELY breaks the platform: the Keycloak admin
+      # password (tenant realm provisioning — the reported 401) and the ArcadeDB
+      # password (every service's datastore). The Fuseki password is intentionally
+      # NOT gated by default (only DEDICATED-tenant provisioning needs it) and the
+      # internal-service token is omitted (blank = permit-all in dev). Add
+      # eip/fuseki-admin#password here if you require dedicated tenants at boot.
+      REQUIRED_SECRETS: "eip/keycloak-admin#password,eip/arcadedb#password"
+      GATE_TIMEOUT_SECONDS: "180"
+    entrypoint: ["sh", "/secrets-ready.sh"]
+    networks: [eip-net]
+    restart: "no"
+
+  # Data Ingestion Service - enterprise data-source connectivity (JDBC/REST),
+  # metadata discovery, source->target mapping, scheduled/on-demand batch load
+  # into the tenant's ArcadeDB. Extra JDBC driver jars (MySQL, Oracle, ODBC
+  # bridges) can be dropped into the ./drivers host folder without a rebuild.
+  data-ingestion:
+    build: ./services/data-ingestion-service
+    image: eip-data-ingestion
+    container_name: eip-data-ingestion
+    logging: *flog
+    ports: ["8096:8096"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+      # Extra JDBC driver jars (e.g. MySQL, Oracle, ODBC-JDBC bridges) — drop the
+      # jar into ./drivers on the host and restart this service; Spring Boot's
+      # PropertiesLauncher appends it to the classpath via -Dloader.path=/app/drivers.
+      # See drivers/README.md.
+      - ./drivers:/app/drivers
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8096/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  okg-ingest:
+    build: ./services/okg-ingest-service
+    image: eip-okg-ingest
+    container_name: eip-okg-ingest
+    logging: *flog
+    ports: ["8081:8081"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+      # Kafka lives in docker-compose.infra.yml — cannot be referenced via
+      # depends_on here (see the "Startup-order note" on the platform-core
+      # block below); start.sh brings up the infra layer first instead.
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Jira ingestion (or other okg-events producers) — see okg.jira.* / okg.kafka.*
+      # in this service's application.yml for connection-config and topic defaults.
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  okg-reasoning:
+    build: ./services/okg-reasoning-service
+    image: eip-okg-reasoning
+    container_name: eip-okg-reasoning
+    logging: *flog
+    ports: ["8088:8088"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 400m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - FUSEKI_URL=http://eip-fuseki:3030
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  graph-proxy:
+    build: ./services/graph-proxy-service
+    image: eip-graph-proxy
+    container_name: eip-graph-proxy
+    logging: *flog
+    ports: ["8080:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - FUSEKI_URL=http://eip-fuseki:3030
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  nl-query:
+    build: ./services/nl-query-service
+    image: eip-nl-query
+    container_name: eip-nl-query
+    logging: *flog
+    ports: ["8082:8082"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      # nl-query's QdrantIngestionRunner is an ApplicationRunner that polls
+      # platform-core-service's /api/internal/active-tenants at boot. Without
+      # this gate, on a cold start the runner finds zero tenants and skips
+      # ingestion entirely until next restart.
+      platform-core:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      # qwen2.5:1.5b measured 2.9x faster than granite3.1-dense:2b on the same
+      # ~3.1k-token prompt (103s vs 301s): 42.5 vs 22 tok/s prefill and 12 vs
+      # 4.8 tok/s generation. Granite remains available via GraniteChatProvider
+      # (OLLAMA_GRANITE_MODEL) for anyone who wants its answer quality back, but
+      # note OLLAMA_MAX_LOADED_MODELS=1 on this container means switching between
+      # the two evicts and reloads.
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-qwen2.5:1.5b}
+      - OLLAMA_ALT_CHAT_MODEL=phi3.5
+      # bge-m3: multilingual (incl. Japanese), 1024-dim. Embeds on eip-ollama-hi.
+      - OLLAMA_EMBED_MODEL=bge-m3
+      # Must be passed explicitly, exactly as doc-ingest and mcp-rag do. Without
+      # it this service falls back to the in-compose hostname, which does not
+      # resolve in the remote-AI topology — every embedding call then fails and
+      # RetrievalFederator silently returns an empty context, so answers are
+      # generated with no RAG at all ("0 chunks matched").
+      - OLLAMA_EMBED_URL=${OLLAMA_EMBED_URL:-http://eip-ollama-hi:11434}
+      - OLLAMA_HI_URL=${OLLAMA_HI_URL:-http://eip-ollama-hi:11434}
+      - OLLAMA_HI_CHAT_MODEL=qwen2.5:1.5b
+      # Provider-gate model mode: SINGLE shows only the default 'inhouse' provider;
+      # MULTIPLE also surfaces the providers whose key is in OLLAMA_EXTRA_MODELS
+      # (phi | granite | qwen). Read by InhouseProviderGate — without these the
+      # gate defaults to SINGLE and secondary in-house providers never appear.
+      - OLLAMA_MODEL_MODE=${OLLAMA_MODEL_MODE:-SINGLE}
+      - OLLAMA_EXTRA_MODELS=${OLLAMA_EXTRA_MODELS:-}
+      - QDRANT_HOST=eip-qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_GRPC_PORT=6334
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemma-3-27b-it}
+      # Quota economy on metered external providers. A question normally costs
+      # THREE model calls: scope classifier, the briefing, and the groundedness
+      # self-check. Google AI's free tier allows 20 requests/minute, so that is
+      # ~6 questions before a 429. Both extra calls are switchable and default
+      # ON — set these to false to spend one call per question.
+      #   - scope gate: RULE 0 in the briefing prompt still enforces scope, so
+      #     dropping the classifier weakens off-topic rejection, not removes it.
+      #   - self-check: produces the TrustSignal behind the trust badge, which
+      #     the UI no longer renders — so today it is computed and discarded.
+      # Passed as SPRING_APPLICATION_JSON rather than two plain env vars: the
+      # scope gate is read by @Value, whose relaxed env-var binding for a
+      # dashed name (nlquery.scope-gate.enabled) is easy to get subtly wrong and
+      # fails SILENTLY back to the default. JSON binds the exact property names.
+      - SPRING_APPLICATION_JSON={"nlquery":{"scope-gate":{"enabled":${NLQUERY_SCOPE_GATE_ENABLED:-true}},"trust":{"self-check-enabled":${NLQUERY_TRUST_SELF_CHECK_ENABLED:-true}}}}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-opus-4-7}
+      # Which provider serves a question when the caller names none. Set to
+      # 'gemma' to route the copilot at Google AI (fast, off-network) or leave
+      # 'inhouse' for the local CPU model. Falls back to 'inhouse' by itself if
+      # the chosen provider has no usable API key.
+      - NLQUERY_DEFAULT_PROVIDER=${NLQUERY_DEFAULT_PROVIDER:-inhouse}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/api/nl-query/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  priority-engine:
+    build: ./services/priority-engine-service
+    image: eip-priority-engine
+    container_name: eip-priority-engine
+    logging: *flog
+    ports: ["8083:8083"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  briefing-service:
+    build: ./services/briefing-service
+    image: eip-briefing
+    container_name: eip-briefing
+    logging: *flog
+    ports: ["8084:8084"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  agent-orchestrator:
+    build: ./services/agent-orchestrator-service
+    image: eip-agent-orchestrator
+    container_name: eip-agents
+    logging: *flog
+    ports: ["8085:8085"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  # ── Modular Agents & MCP tool servers (design docs/EIP-Agents-MCP-Modular-Design) ──
+  # Hot-pluggable Tier-3 plugins: each self-registers with platform-registry at
+  # startup and is independently deployable. The control plane runs fine with
+  # zero of these present (invariant I5). Removing any one leaves the stack valid.
+
+  # MCP tool server wrapping priority-engine (priority.get_queue/get_sla/get_alerts).
+  mcp-priority:
+    build: ./mcp/eip-mcp-priority
+    image: eip-mcp-priority
+    container_name: eip-mcp-priority
+    logging: *flog
+    ports: ["8101:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_PRIORITY_ENGINE_URL=http://eip-priority-engine:8083
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # internal-service token loaded from Infisical (eip/internal-service#token) — see application.yml.
+
+  # MCP tool server wrapping decision-log (decision.search_decisions + decision.log_decision write).
+  mcp-decision:
+    build: ./mcp/eip-mcp-decision
+    image: eip-mcp-decision
+    container_name: eip-mcp-decision
+    logging: *flog
+    ports: ["8102:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_DECISION_LOG_URL=http://eip-decision-log:8086
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # Briefing agent — schedule-triggered, SUGGEST_ONLY. Uses eip-agent-runtime.
+  agent-briefing:
+    build: ./agents/eip-agent-briefing
+    image: eip-agent-briefing
+    container_name: eip-agent-briefing
+    logging: *flog
+    ports: ["8103:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_AGENT_BASE_URL=http://eip-agent-briefing:8080
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # Decision Intelligence agent — ACT_WITH_APPROVAL. Persists proposed writes to the
+  # shared ArcadeDB approval store; the approval inbox executes them on approval.
+  agent-decision:
+    build: ./agents/eip-agent-decision
+    image: eip-agent-decision
+    container_name: eip-agent-decision
+    logging: *flog
+    ports: ["8104:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_AGENT_BASE_URL=http://eip-agent-decision:8080
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - ARCADEDB_DATABASE=orphos
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # ArcadeDB password loaded from Infisical (eip/arcadedb#password) — see application.yml.
+
+  # MCP tool server wrapping doc-ingest + nl-query RAG (rag.search_documents/get_document/answer).
+  mcp-rag:
+    build: ./mcp/eip-mcp-rag
+    image: eip-mcp-rag
+    container_name: eip-mcp-rag
+    logging: *flog
+    ports: ["8105:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_DOC_INGEST_URL=http://eip-doc-ingest:8091
+      - EIP_NL_QUERY_URL=http://eip-nl-query:8082
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # MCP tool server wrapping mail-insight (mail.list_tasks/list_notifications/draft_reply/send_email).
+  mcp-mail:
+    build: ./mcp/eip-mcp-mail
+    image: eip-mcp-mail
+    container_name: eip-mcp-mail
+    logging: *flog
+    ports: ["8106:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_MAIL_INSIGHT_URL=http://eip-mail-insight:8092
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # MCP tool server wrapping okg-reasoning (okg.get_insights read, okg.run_reasoning write+approval).
+  mcp-reasoning:
+    build: ./mcp/eip-mcp-reasoning
+    image: eip-mcp-reasoning
+    container_name: eip-mcp-reasoning
+    logging: *flog
+    ports: ["8107:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_OKG_REASONING_URL=http://eip-okg-reasoning:8088
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # MCP tool server wrapping graph-proxy (graph.sparql_query, read-only).
+  mcp-graph:
+    build: ./mcp/eip-mcp-graph
+    image: eip-mcp-graph
+    container_name: eip-mcp-graph
+    logging: *flog
+    ports: ["8108:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_GRAPH_PROXY_URL=http://eip-graph-proxy:8080
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # MCP tool server wrapping doc-ingest + okg-ingest (ingest.list_jobs/run_job, okg.trigger_sync).
+  mcp-ingest:
+    build: ./mcp/eip-mcp-ingest
+    image: eip-mcp-ingest
+    container_name: eip-mcp-ingest
+    logging: *flog
+    ports: ["8109:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_DOC_INGEST_URL=http://eip-doc-ingest:8091
+      - EIP_OKG_INGEST_URL=http://eip-okg-ingest:8081
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # MCP tool server wrapping the communication-channel APIs of mail-insight
+  # (comms.list_tasks/list_notifications/draft_reply/prepare_send/send_message).
+  mcp-comms:
+    build: ./mcp/eip-mcp-comms
+    image: eip-mcp-comms
+    container_name: eip-mcp-comms
+    logging: *flog
+    ports: ["8112:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_MAIL_INSIGHT_URL=http://eip-mail-insight:8092
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  # Email Triage and Task agent — event-triggered, ACT_WITH_APPROVAL. Persists proposed
+  # writes (draft/send) to the shared ArcadeDB approval store.
+  agent-email-triage:
+    build: ./agents/eip-agent-email-triage
+    image: eip-agent-email-triage
+    container_name: eip-agent-email-triage
+    logging: *flog
+    ports: ["8110:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_AGENT_BASE_URL=http://eip-agent-email-triage:8080
+      - EIP_NL_QUERY_URL=http://eip-nl-query:8082
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - ARCADEDB_DATABASE=orphos
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # ArcadeDB password loaded from Infisical (eip/arcadedb#password) — see application.yml.
+
+  # Communications Triage agent — event-triggered, ACT_WITH_APPROVAL. Reads channel
+  # (Slack/Teams/…) tasks/notifications and drafts replies; sends via the approval store.
+  agent-comms-triage:
+    build: ./agents/eip-agent-comms-triage
+    image: eip-agent-comms-triage
+    container_name: eip-agent-comms-triage
+    logging: *flog
+    ports: ["8113:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_AGENT_BASE_URL=http://eip-agent-comms-triage:8080
+      - EIP_NL_QUERY_URL=http://eip-nl-query:8082
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - ARCADEDB_DATABASE=orphos
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # ArcadeDB password loaded from Infisical (eip/arcadedb#password) — see application.yml.
+
+  # Attention / Priority agent — schedule-triggered, SUGGEST_ONLY. Read-only, no approval store.
+  agent-attention:
+    build: ./agents/eip-agent-attention
+    image: eip-agent-attention
+    container_name: eip-agent-attention
+    logging: *flog
+    ports: ["8111:8080"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-registry:
+        condition: service_healthy
+    environment:
+      - EIP_REGISTRY_URL=http://eip-platform-registry:8093
+      - EIP_AGENT_BASE_URL=http://eip-agent-attention:8080
+      - EIP_NL_QUERY_URL=http://eip-nl-query:8082
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+
+  decision-log:
+    build: ./services/decision-log-service
+    image: eip-decision-log
+    container_name: eip-decision-log
+    logging: *flog
+    ports: ["8086:8086"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    # Bumped from 256m: Tika document parsing + embedding client (-Xmx300m).
+    mem_limit: 448m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Decision Log RAG stack: bge-m3 embeddings on the hi-memory Ollama,
+      # vectors in Qdrant, LLM completions via nl-query's internal API.
+      - OLLAMA_EMBED_URL=${OLLAMA_EMBED_URL:-http://eip-ollama-hi:11434}
+      - QDRANT_HOST=eip-qdrant
+      - NL_QUERY_URL=http://eip-nl-query:8082
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN
+      # and EIP_SECURITY_INTERNAL_SERVICE_TOKEN) is loaded from Infisical at
+      # eip/internal-service#token — see this service's application.yml
+      # secrets.bindings. No direct env injection here.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  notification-service:
+    build: ./services/notification-service
+    image: eip-notification
+    container_name: eip-notification
+    logging: *flog
+    ports: ["8087:8087"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # Service-to-service /api/internal/ token (EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN)
+      # is loaded from Infisical at eip/internal-service#token — see this service's
+      # application.yml secrets.bindings. No direct env injection here.
+
+  # Platform Registry - plugin manifests and per-tenant feature flags for the
+  # shell's Module Federation plugin loader (frontend/shell/src/PluginLoader.jsx +
+  # PluginRegistry.jsx). Persists PluginManifest + TenantFeature to the shared
+  # ArcadeDB orphos database (root password from Infisical at eip/arcadedb#password).
+  # Trusts the same multi-issuer JWT set as every other service.
+  platform-registry:
+    build: ./services/platform-registry-service
+    image: eip-platform-registry
+    container_name: eip-platform-registry
+    logging: *flog
+    ports: ["8093:8093"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_BASE_URL=http://${EIP_PUBLIC_HOST:-localhost}:8443
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      # Pinned browser origins for the shared eip-common CORS source (this
+      # service previously shipped a local wildcard+credentials source; its
+      # SecurityConfig now uses the shared config, so pin the SPA origins here
+      # like admin-console does).
+      - EIP_CORS_ALLOWEDORIGINS=http://${EIP_PUBLIC_HOST:-localhost}:3001,http://localhost:3001,http://localhost:5173
+      # Polls platform-core-service for live tenant realm issuer list (multi-tenant JWT validation)
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      # ArcadeDB (shared orphos database) — replaces the former embedded H2.
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Infisical machine identity — supplies the ArcadeDB root password
+      # (eip/arcadedb#password) via application.yml secrets.bindings.
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8093/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 150s
+
+  # Platform Core Service - tenant lifecycle + JWT-issuer/tenant discovery
+  # contract, auth/authz config, secrets indirection, migrations, onboarding,
+  # and platform ops. Carved out of the former admin-service; every other
+  # service polls this service for the live tenant-issuer and active-tenant
+  # lists (multi-issuer JWT validation and scheduled background work), so
+  # this is the boot-time bottleneck — the healthcheck + depends_on graph
+  # below makes the ordering explicit.
+  #
+  # SMTP passwords and IdP secrets (clientSecret/managerPassword/etc.) are
+  # written to Infisical at runtime via the admin UI; only opaque vault: refs
+  # are persisted to ArcadeDB. The eip-app machine identity (mounted below) is
+  # what authorises those writes - the same identity used by every service.
+  platform-core:
+    build: ./services/platform-core-service
+    image: eip-platform-core
+    container_name: eip-platform-core
+    logging: *flog
+    ports: ["8090:8090"]
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      # Hard gate: do not start until every required secret is confirmed present
+      # in Infisical. secrets-ready lives in THIS file, so (unlike the infra
+      # services) it CAN be referenced here. Because every other app service
+      # depends_on platform-core: service_healthy, the whole layer waits on this.
+      secrets-ready:
+        condition: service_completed_successfully
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Fuseki is a soft dep at startup — only touched when a DEDICATED tenant
+      # is being provisioned. Not in depends_on for that reason.
+      - FUSEKI_URL=http://eip-fuseki:3030
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      # Browser-facing issuer URLs — must match the iss claim in JWTs minted
+      # by Keycloak (pinned via KC_HOSTNAME_URL in docker-compose.infra.yml).
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      # Platform ("shared") SSO auto-seeded into every new/existing tenant realm.
+      # When these are set, every tenant gets a "Sign in with Microsoft" button
+      # with no per-tenant setup; left blank, tenants start with local login only.
+      # NOTE: a shared Azure app must register each realm's broker redirect URI:
+      #   http://<host>:8443/realms/tenant-<uuid>/broker/azure/endpoint
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      # This service reads the platform issuer from KEYCLOAK_PLATFORM_ISSUER
+      # (not EIP_SECURITY_PLATFORM_ISSUER like the other services).
+      - KEYCLOAK_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - KEYCLOAK_JWKS_URI=http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:-eip}/protocol/openid-connect/certs
+      # Issuer base used by DbBackedAllowedIssuersProvider to compute the
+      # accepted-issuer set ({base}/realms/{realm}) for every active tenant.
+      - EIP_SECURITY_KEYCLOAK_ISSUER_BASE=http://${EIP_PUBLIC_HOST:-localhost}:8443
+      # CORS for direct (non-proxied) browser access to this service.
+      - EIP_CORS_ALLOWEDORIGINS=http://${EIP_PUBLIC_HOST:-localhost}:3001,http://localhost:3001,http://localhost:5173
+      # Redirect URIs / web origins stamped onto the orphos-spa client of every
+      # NEWLY provisioned tenant realm. Existing realms must be patched via the
+      # Keycloak admin API (see scripts/update-keycloak-spa-urls).
+      # EIP_PUBLIC_HOST_2 is an optional secondary LAN IP/host the SPA is also
+      # served on (multi-NIC hosts); unset it falls back to the primary, which
+      # just duplicates an entry harmlessly.
+      - EIP_KEYCLOAK_PROVISIONING_SPA_REDIRECT_URIS=http://${EIP_PUBLIC_HOST:-localhost}:3001/*,http://${EIP_PUBLIC_HOST_2:-${EIP_PUBLIC_HOST:-localhost}}:3001/*,http://localhost:3001/*,http://localhost:5173/*,com.orphos.mobile:/oauth2redirect
+      - EIP_KEYCLOAK_PROVISIONING_SPA_WEB_ORIGINS=http://${EIP_PUBLIC_HOST:-localhost}:3001,http://${EIP_PUBLIC_HOST_2:-${EIP_PUBLIC_HOST:-localhost}}:3001,http://localhost:3001,http://localhost:5173
+      # Domain the demo tenant answers for (hostname-fallback tenant lookup).
+      # Only applied on first boot of a fresh DB — existing Tenant rows keep
+      # their stored domain and must be updated via the admin UI or ArcadeDB.
+      # Realm the provisioner creates/patches for the demo tenant. Sourced from
+      # the single KEYCLOAK_REALM var so it matches the issuer/JWKS URLs above.
+      - EIP_TENANT_DEMO_REALM=${KEYCLOAK_REALM:-eip}
+      - EIP_TENANT_DEMO_DOMAIN=${EIP_PUBLIC_HOST:-localhost}
+      # Demo tenant display name — surfaced from the instance name the setup
+      # wizard writes to .env. Reconciled onto the existing row on each boot.
+      - EIP_TENANT_DEMO_DISPLAY_NAME=${EIP_TENANT_DEMO_DISPLAY_NAME:-Demo Tenant}
+      # false → the demo tenant is created but starts CLEAN (no sample data).
+      # Written by orphos-setup from the "load demo data" toggle; default true.
+      - EIP_TENANT_SEED_SAMPLE_DATA=${EIP_TENANT_SEED_SAMPLE_DATA:-true}
+      # First-tenant administrator from the setup wizard (step 6). When set, this
+      # email + password become the real admin login: 'admin' role in the tenant
+      # realm AND 'platform_admin' in the 'platform' realm (one identity, both
+      # roles). Blank → bootstrap-grade admin/admin and pa/pa remain in effect.
+      - EIP_TENANT_ADMIN_EMAIL=${EIP_TENANT_ADMIN_EMAIL:-}
+      - EIP_TENANT_ADMIN_PASSWORD=${EIP_TENANT_ADMIN_PASSWORD:-}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+      # VictoriaLogs base URL for AdminLogsController
+      - EIP_LOGS_URL=http://eip-victoria-logs:9428
+      # ALL secrets — ArcadeDB / Keycloak-admin / Fuseki passwords AND the
+      # internal-service token — are resolved from Infisical by the
+      # SecretsBindingPostProcessor runtime backstop (eip-secrets). No .env
+      # passthrough remains.
+    # Startup-order note:
+    # ArcadeDB, Infisical and Keycloak are runtime dependencies but live in
+    # the infra/data compose files, so they cannot be referenced from
+    # depends_on here (Compose would reject this file as invalid). The
+    # required ordering is enforced by start.sh, which brings up the
+    # infra and data layers and waits for each to be healthy before
+    # starting this app layer. SchemaBootstrap and Infisical bindings then
+    # find their backends already running on first boot.
+    volumes:
+      # Docker socket — read by AdminServicesController to list/control containers.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - infisical_svc:/run/infisical:ro
+      # platform-core owns the connections registry — mounted read-write so the
+      # DB Connections admin screen can update it. Every other service mounts it
+      # read-only.
+      - eip_connections:/run/eip:rw
+      # Realm template — SAME file Keycloak imports for the demo realm. New
+      # tenants are stamped from it (single source of truth for realm structure).
+      - ./config/keycloak:/app/keycloak-templates:ro
+    healthcheck:
+      # /actuator/health is permit-all in SecurityConfig and reports DOWN
+      # while DemoTenantBootstrap is still backfilling tenantIds, so by the
+      # time this returns 200 the platform is genuinely ready to be queried.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8090/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # Generous start_period: cold-start has to (1) bootstrap the schema
+      # (including admin-console/widgets document types — SchemaBootstrap
+      # ensures ALL of them, since every service shares the orphos
+      # database), (2) backfill tenantIds across 14 doc types, (3) patch the
+      # Keycloak realm with the tenant_id mapper. 90s covers dev and CI hardware.
+      start_period: 90s
+
+  # Admin Console Service - tenant branding/theming, email/SMTP configuration
+  # and templates, and AI-copilot query-history viewing. Carved out of the
+  # former admin-service; consumes (does not produce) the tenant/JWT-issuer
+  # discovery contract from platform-core-service.
+  admin-console:
+    build: ./services/admin-console-service
+    image: eip-admin-console
+    container_name: eip-admin-console
+    logging: *flog
+    ports: ["8094:8094"]
+    # 384m starved the Java 21 JVM into GC thrash, dragging cold-boot to ~100s.
+    # 512m gives the heap breathing room so the service boots well within the
+    # healthcheck window.
+    mem_limit: 512m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      # Logging verbosity. `prod` (the default) keeps io.orphos.eip.admin at INFO
+      # and Spring at ERROR; set EIP_PROFILE=dev in .env for DEBUG application
+      # logs plus Spring's startup output. See the service's
+      # application-{dev,prod}.yml.
+      - SPRING_PROFILES_ACTIVE=${EIP_PROFILE:-prod}
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      # Polls platform-core-service for live tenant realm issuer list (multi-tenant JWT validation)
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      - EIP_CORS_ALLOWEDORIGINS=http://${EIP_PUBLIC_HOST:-localhost}:3001,http://localhost:3001,http://localhost:5173
+      # Event-communication framework: services watched for SERVICE_DOWN /
+      # SERVICE_RECOVERED alerts (comma-separated name=healthUrl pairs).
+      - EIP_EVENTS_HEALTH_TARGETS=platform-core=http://eip-platform-core:8090/actuator/health,doc-ingest=http://eip-doc-ingest:8091/actuator/health,nl-query=http://eip-nl-query:8082/actuator/health,graph-proxy=http://eip-graph-proxy:8080/actuator/health,okg-ingest=http://eip-okg-ingest:8081/actuator/health,priority-engine=http://eip-priority-engine:8083/actuator/health,briefing=http://eip-briefing:8084/actuator/health,agents=http://eip-agents:8085/actuator/health,decision-log=http://eip-decision-log:8086/actuator/health,notification=http://eip-notification:8087/actuator/health,widgets=http://eip-widgets:8095/actuator/health,data-ingestion=http://eip-data-ingestion:8096/actuator/health
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8094/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      # This service genuinely boots in ~100s on a cold JVM under the 384m
+      # mem_limit (Tomcat binds 8094 ~87s in). The old 45s window flipped the
+      # container to "unhealthy" before it answered, aborting eip-shell with
+      # "dependency failed to start: container eip-admin-console is unhealthy".
+      # 120s + 8 retries gives headroom over the observed boot time, matching
+      # the generous window platform-core (an even heavier boot) already uses.
+      start_period: 120s
+
+  # Widgets Service - per-user/tenant dashboard widget layout persistence.
+  # Carved out of the former admin-service; consumes (does not produce) the
+  # tenant/JWT-issuer discovery contract from platform-core-service.
+  widgets:
+    build: ./services/widgets-service
+    image: eip-widgets
+    container_name: eip-widgets
+    logging: *flog
+    ports: ["8095:8095"]
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      # Polls platform-core-service for live tenant realm issuer list (multi-tenant JWT validation)
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      # Base URL used to fetch the tenant's dynamic (data-onboarded) widget
+      # ids when validating a saved layout — see OnboardingWidgetsClient.
+      - EIP_PLATFORM_CORE_URL=http://eip-platform-core:8090
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8095/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 150s
+
+  # Docling serve (CPU image) — IBM's layout-aware document parser, used by
+  # doc-ingest via the official docling-java client for high-fidelity PDF/Office
+  # parsing and Japanese OCR (RapidOCR). Stateless REST service on :5001.
+  # NOTE: on first use Docling downloads its layout/OCR models, so the container
+  # needs outbound internet (or a pre-baked model cache) on initial startup.
+  docling:
+    # Pinned by digest (docling-serve 1.26.0 at pin time) so every machine
+    # that pulls this - including an offline-package build machine and an
+    # online-assisted install target pulling at a different point in time -
+    # gets the exact same bytes. Bump deliberately; don't drift back to :latest.
+    image: quay.io/docling-project/docling-serve-cpu@sha256:7e07522e0240c1db3ff5b837ffa969c2ecd5a71664c0e0369f5a69fc169e30ba
+    container_name: eip-docling
+    # Bundled Docling is gated behind the "bundled-docling" profile (set by
+    # start.sh from EIP_BUNDLED_DOCLING, default true) — same idiom as the
+    # bundled ArcadeDB/Postgres. Set EIP_BUNDLED_DOCLING=false and point
+    # DOCLING_URL at a remote docling-serve to reclaim this container's 4 GB.
+    # See docker-compose.remote-ai.yml.
+    profiles: ["bundled-docling"]
+    logging: *flog
+    ports: ["5001:5001"]
+    environment:
+      - DOCLING_SERVE_ENABLE_UI=0
+    mem_limit: 4g
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # ── Voice (opt-in functionality, "VoiceEnabled") ────────────────────────────
+  # Whisper ASR sidecar — local, OFFLINE speech-to-text. Two consumers, both
+  # optional: voice-service (a clip the browser just recorded, for Ask Orphos)
+  # and doc-ingest's TranscriptionClient (an audio FILE already being ingested).
+  # On first use it downloads the ASR model, so it needs outbound internet (or a
+  # pre-baked model cache) on initial startup.
+  #
+  # Lifecycle: the "voice" profile CREATES this container; start.sh brings the
+  # profile up with --no-start so it exists but is not running. platform-core's
+  # VoiceModuleReconciler then starts it (and voice below) whenever at least one
+  # active tenant has voice switched on in Admin → Voice, and stops both when
+  # none does — at launch, after any restart, and right after a toggle. That is
+  # why `restart` is "no" and not "unless-stopped": the tenant toggles decide
+  # whether it runs, and unless-stopped would bring it back on a daemon or host
+  # restart even when every tenant has voice off, re-claiming the 3 GB.
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:v1.8.2
+    container_name: eip-whisper
+    profiles: ["voice"]
+    logging: *flog
+    ports: ["9000:9000"]
+    environment:
+      - ASR_MODEL=${WHISPER_MODEL:-base}
+      - ASR_ENGINE=${WHISPER_ENGINE:-faster_whisper}
+    volumes:
+      # The ASR weights (~142 MB for "base", far more for small/medium/large) are
+      # downloaded on first use into the CONTAINER filesystem. Without this volume
+      # every recreate - and the launcher recreates these on each run - throws the
+      # model away and re-downloads it, which also means voice cannot be started
+      # at all on a host that is briefly offline.
+      - eip-whisper-models:/root/.cache/whisper
+    mem_limit: 3g
+    networks: [eip-net]
+    restart: "no"
+    # Whisper opens its port only after loading the model (~1-2 min; longer on
+    # the first start, which downloads it). Without a healthcheck Admin → Voice
+    # can only probe the port, and reports that whole window as "unreachable".
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:9000/docs || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 300s
+
+  # Browser-facing speech-to-text for Ask Orphos. Separate from doc-ingest on
+  # purpose: dictation is on a user's critical path and reports its failures,
+  # while ingestion transcription is best-effort and silent. Same lifecycle as
+  # the Whisper sidecar above — created stopped, run while a tenant has voice on.
+  voice:
+    build: ./services/voice-service
+    image: eip-voice
+    container_name: eip-voice
+    profiles: ["voice"]
+    logging: *flog
+    ports: ["8099:8099"]
+    mem_limit: 512m
+    networks: [eip-net]
+    restart: "no"
+    depends_on:
+      whisper:
+        condition: service_started
+        # Optional: voice-service starts and answers /api/voice/status with
+        # available=false when Whisper is not up, which is exactly what the
+        # admin tab needs to show. Blocking here would mean the tab could not
+        # explain the problem because the service reporting it would be down too.
+        required: false
+    environment:
+      - VOICE_WHISPER_URL=${WHISPER_URL:-http://eip-whisper:9000}
+      - VOICE_REGISTRY_URL=http://eip-platform-registry:8093
+      - VOICE_SELF_HEALTH_URL=http://eip-voice:8099/actuator/health
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8099/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  doc-ingest:
+    build: ./services/doc-ingest-service
+    image: eip-doc-ingest
+    container_name: eip-doc-ingest
+    logging: *flog
+    ports: ["8091:8091"]
+    mem_limit: 768m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+      docling:
+        condition: service_started
+        # Optional so the project stays valid when the bundled Docling is
+        # disabled (EIP_BUNDLED_DOCLING=false → no "bundled-docling" profile).
+        # With a remote DOCLING_URL there is no local container to wait on.
+        required: false
+      whisper:
+        condition: service_started
+        # Optional: transcription is best-effort. If Whisper is down, audio is
+        # still stored — just not transcribed — so doc-ingest must not block on it.
+        required: false
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      - OLLAMA_URL=${OLLAMA_URL:-http://eip-ollama:11434}
+      # Embeddings run on the hi-memory container where bge-m3 lives, so the
+      # primary container never co-resides a chat model and the embed model.
+      - OLLAMA_EMBED_URL=${OLLAMA_EMBED_URL:-http://eip-ollama-hi:11434}
+      # bge-m3: multilingual (incl. Japanese), 1024-dim — replaces nomic-embed-text.
+      - OLLAMA_EMBED_MODEL=bge-m3
+      - QDRANT_HOST=eip-qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_GRPC_PORT=6334
+      # Docling sidecar — layout-aware parsing + Japanese OCR. DoclingParser
+      # falls back to Tika automatically if this is unreachable.
+      - DOC_INGEST_DOCLING_ENABLED=true
+      - DOC_INGEST_DOCLING_URL=${DOCLING_URL:-http://eip-docling:5001}
+      # Whisper sidecar — offline speech-to-text for audio/voice uploads. Part of
+      # the opt-in "voice" functionality, so it follows EIP_VOICE_ENABLED rather
+      # than being hardcoded on: with voice off there is no Whisper container to
+      # talk to, and leaving this true would make every audio upload wait out a
+      # connection timeout before being skipped. TranscriptionClient degrades
+      # gracefully either way — audio is still stored, just not transcribed.
+      - DOC_INGEST_WHISPER_ENABLED=${EIP_VOICE_ENABLED:-false}
+      - DOC_INGEST_WHISPER_URL=${WHISPER_URL:-http://eip-whisper:9000}
+      # nl-query reuse for AI metadata enrichment (per-tenant opt-in; best-effort)
+      - NL_QUERY_URL=http://eip-nl-query:8082
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      # Polls platform-core-service for live tenant realm issuer list (multi-tenant JWT validation)
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      - INFISICAL_HOST=http://eip-infisical:8080
+      # No hardcoded secret: read the eip-app machine-identity files that
+      # infisical-seed writes into the shared infisical_svc volume (mounted below).
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    volumes:
+      - eip-doc-ingest-data:/data/doc-ingest
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8091/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  mail-insight:
+    build: ./services/mail-insight-service
+    image: eip-mail-insight
+    container_name: eip-mail-insight
+    logging: *flog
+    ports: ["8092:8092"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=${ARCADEDB_USER:-root}
+      # Direct fallback for the ArcadeDB password. Normally supplied by the
+      # Infisical binding in each service's application.yml, but when Infisical
+      # is unavailable that binding yields nothing and EVERY ArcadeDB call fails
+      # with "403 Basic authentication error" — prompts, live context and usage
+      # recording all break. application.yml's ${ARCADEDB_PASSWORD:} reads this,
+      # and the Infisical backstop still overrides it when Infisical is healthy.
+      - ARCADEDB_PASSWORD=${ARCADEDB_PASSWORD:-}
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      # Polls platform-core-service for live tenant realm issuers + active-tenant list
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      # nl-query reuse for LLM enrichment (best-effort; rules run regardless)
+      - NL_QUERY_URL=http://eip-nl-query:8082
+      # Microsoft Graph endpoints (mail + calendar + Teams, app-only flow)
+      - MS_GRAPH_BASE=https://graph.microsoft.com/v1.0
+      - MS_LOGIN_BASE=https://login.microsoftonline.com
+      # Communication channels (Slack / Teams / …). Per-connection credentials
+      # live in Infisical; these are just the global toggles + Slack API base.
+      - SLACK_API_BASE=${SLACK_API_BASE:-https://slack.com/api}
+      - MAIL_CHANNELS_SCAN_ENABLED=${MAIL_CHANNELS_SCAN_ENABLED:-true}
+      - MAIL_CHANNELS_AGENT_ENABLED=${MAIL_CHANNELS_AGENT_ENABLED:-true}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8092/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ── Native mobile app BFF ───────────────────────────────────────────────
+  # OPT-IN: behind the `mobile` compose profile, so the full-platform start
+  # (start.sh / start.bat -> `up -d`) never brings it up. It runs only when the
+  # profile is enabled, i.e. `startmodules mobile` (which exports
+  # COMPOSE_PROFILES=...,mobile) or the same functionality picked in the setup
+  # wizard's web UI. Port 8097 is its own — the web SPA's BFF is web-bff:8098.
+  mobile-bff:
+    build: ./services/mobile-bff-service
+    image: eip-mobile-bff
+    container_name: eip-mobile-bff
+    logging: *flog
+    # Not profiled: the web Tasks & Approvals panel and Travel rail read this BFF too,
+    # so it must run with the platform, not only for the native app.
+    ports: ["8097:8097"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      # Downstream services this BFF aggregates (forwarding the caller's JWT + tenant)
+      - BRIEFING_URL=http://eip-briefing:8084
+      - DECISION_LOG_URL=http://eip-decision-log:8086
+      - PRIORITY_ENGINE_URL=http://eip-priority-engine:8083
+      - MAIL_INSIGHT_URL=http://eip-mail-insight:8092
+      - OKG_REASONING_URL=http://eip-okg-reasoning:8088
+      - WIDGETS_URL=http://eip-widgets:8095
+      # ArcadeDB (shared orphos DB) for the durable capture / device stores.
+      # Password is resolved in-process from OpenBao via the eip-secrets binding.
+      - ARCADEDB_URL=${ARCADEDB_URL:-http://eip-arcadedb:2480}
+      - ARCADEDB_USER=root
+      - ARCADEDB_DB=orphos
+      # Seed demo finance/HR/forecast rows for the demo (localhost) tenant so the
+      # Financials & Team Intelligence tiles show data. Idempotent + gated.
+      - MOBILE_DEMO_SEED_ENABLED=${MOBILE_DEMO_SEED_ENABLED:-false}
+      - MOBILE_DEMO_TENANT_ID=${MOBILE_DEMO_TENANT_ID:-127a2ec3-cb19-365e-9ebe-c9c19ed5e5d8}
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8097/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web-bff:
+    build: ./services/web-bff-service
+    image: eip-web-bff
+    container_name: eip-web-bff
+    logging: *flog
+    ports: ["8098:8098"]
+    volumes:
+      - infisical_svc:/run/infisical:ro
+      - eip_connections:/run/eip:ro
+    # Stateless read-through aggregator — no DB, no cache, so a smaller budget than
+    # the services it fans out to.
+    mem_limit: 320m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      platform-core:
+        condition: service_healthy
+    environment:
+      - KEYCLOAK_URL=http://eip-keycloak:8080
+      - KEYCLOAK_ISSUER_URI=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/${KEYCLOAK_REALM:-eip}
+      - EIP_SECURITY_PLATFORM_ISSUER=http://${EIP_PUBLIC_HOST:-localhost}:8443/realms/platform
+      - EIP_TENANT_DISCOVERY_URL=http://eip-platform-core:8090
+      # Downstream services this BFF aggregates. Every call rides the caller's own JWT
+      # and X-Tenant-Id, so this service holds no credential for any of them.
+      - PLATFORM_REGISTRY_URL=http://eip-platform-registry:8093
+      - PLATFORM_CORE_URL=http://eip-platform-core:8090
+      - BRIEFING_URL=http://eip-briefing:8084
+      - PRIORITY_ENGINE_URL=http://eip-priority-engine:8083
+      - DECISION_LOG_URL=http://eip-decision-log:8086
+      - NOTIFICATION_URL=http://eip-notification:8087
+      - DOC_INGEST_URL=http://eip-doc-ingest:8091
+      - WIDGETS_URL=http://eip-widgets:8095
+      - INFISICAL_HOST=http://eip-infisical:8080
+      - INFISICAL_PROJECT_ID_FILE=/run/infisical/project-id
+      - INFISICAL_CLIENT_ID_FILE=/run/infisical/client-id
+      - INFISICAL_CLIENT_SECRET_FILE=/run/infisical/client-secret
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8098/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  prometheus:
+    profiles: [full]
+    image: prom/prometheus:v2.52.0
+    container_name: eip-prometheus
+    logging: *flog
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports: ["9090:9090"]
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # Perses (Apache-2.0, CNCF Sandbox) — dashboard UI on Prometheus. Replaces
+  # grafana/grafana (AGPL-3.0). Traces/logs have their own UIs now (Jaeger :16686,
+  # VictoriaLogs :9428/select/vmui), so Perses covers metrics dashboards.
+  perses:
+    profiles: [full]
+    image: persesdev/perses:v0.47.0
+    container_name: eip-perses
+    logging: *flog
+    ports: ["3000:8080"]
+    volumes:
+      - ./config/perses/config.yaml:/etc/perses/config.yaml:ro
+      - ./config/perses/provisioning:/perses/provisioning:ro
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # Module Federation host. Build context MUST be the whole `frontend/` npm
+  # workspace (not just `shell/`) — root package.json's `workspaces` array
+  # names `shell`/`packages/*`/`remotes/*` as fixed paths that must physically
+  # exist for `npm install` to resolve. See frontend/shell/Dockerfile.
+  shell:
+    build:
+      context: ./frontend
+      dockerfile: shell/Dockerfile
+      args:
+        # Keycloak is accessed from the browser, so localhost is correct here.
+        # VITE_KEYCLOAK_REALM is no longer a build arg — the realm is resolved
+        # at runtime from the current hostname via platform-core-service's
+        # public tenant lookup. See frontend/packages/eip-shell-context/tenantResolver.js + keycloak.js.
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:8443}
+        VITE_KEYCLOAK_CLIENT: ${VITE_KEYCLOAK_CLIENT:-orphos-spa}
+        # Where the SPA fetches /api/public/tenants/by-domain — empty default
+        # routes through the Vite dev proxy / nginx reverse proxy.
+        VITE_ADMIN_API_BASE: ${VITE_ADMIN_API_BASE:-}
+    image: eip-shell
+    container_name: eip-shell
+    logging: *flog
+    ports: ["3001:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      # Shell bootstrap calls platform-core-service before initialising Keycloak —
+      # without this gate, a cold-start refresh would show "Cannot reach
+      # Orphos" until platform-core-service finishes booting.
+      platform-core:
+        condition: service_healthy
+      admin-console:
+        condition: service_healthy
+      widgets:
+        condition: service_healthy
+      # Remote plugin containers — not health-checked (plain nginx static file
+      # servers, no readiness endpoint), just started. shell/nginx.conf resolves
+      # each `/remotes/<id>/` upstream at REQUEST time (see its `resolver` +
+      # `set $upstream` pattern), so the shell itself still starts cleanly even
+      # if a remote is momentarily still coming up.
+      plugin-ai-copilot:
+        condition: service_started
+      plugin-email-scanner:
+        condition: service_started
+      plugin-doc-ingest:
+        condition: service_started
+      plugin-rag-search:
+        condition: service_started
+      plugin-widgets:
+        condition: service_started
+      plugin-decision-log:
+        condition: service_started
+
+  # ── Lightweight API proxy for the native mobile app ─────────────────────
+  # Same nginx routing as `shell` (so /api/mobile/*, /api/decisions,
+  # /api/mail-insight/* reach their services) but with NO Vite SPA build — used
+  # by the `mobile` startup profile so bringing up the mobile backend never
+  # triggers the shell's multi-minute `npm run build`.
+  #
+  # Port 3002 is the MOBILE api/ui port and is deliberately NOT the web UI's
+  # 3001 (`shell`): the two can now run side by side, so a laptop serving the
+  # web SPA can also serve the native app without either binding the other's
+  # port. The mobile app's BuildConfig.API_BASE_URL must match (see
+  # mobile/android/app/build.gradle).
+  #
+  # OPT-IN, same as mobile-bff: the `mobile` profile keeps it out of the
+  # full-platform `up -d`; only `startmodules mobile` (or the setup wizard's
+  # web UI) enables it.
+  mobile-proxy:
+    build:
+      context: ./frontend
+      dockerfile: shell/Dockerfile.proxy
+    image: eip-mobile-proxy
+    container_name: eip-mobile-proxy
+    logging: *flog
+    profiles: ["mobile"]
+    ports: ["3002:80"]
+    mem_limit: 32m
+    networks: [eip-net]
+    restart: unless-stopped
+    depends_on:
+      # The nginx plugin gates + tenant lookup call platform-core; every other
+      # upstream is resolved at request time, so nothing else must be up to boot.
+      platform-core:
+        condition: service_healthy
+
+  # ── Module Federation remotes ───────────────────────────────────────────
+  # One container per plugin, each just a static nginx server for its
+  # remoteEntry.js + chunks — the shell's own nginx proxies /remotes/<id>/ to
+  # these (see frontend/shell/nginx.conf). Names/ports here are otherwise
+  # arbitrary; what MUST line up is platform-registry-service's PluginManifest
+  # `remote_entry_path` seed (data.sql) with the `/remotes/<id>/` prefix below.
+  plugin-ai-copilot:
+    build:
+      context: ./frontend
+      dockerfile: remotes/ai-copilot/Dockerfile
+    image: eip-plugin-ai-copilot
+    container_name: eip-plugin-ai-copilot
+    logging: *flog
+    ports: ["3011:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  plugin-email-scanner:
+    build:
+      context: ./frontend
+      dockerfile: remotes/email-scanner/Dockerfile
+    image: eip-plugin-email-scanner
+    container_name: eip-plugin-email-scanner
+    logging: *flog
+    ports: ["3012:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  plugin-doc-ingest:
+    build:
+      context: ./frontend
+      dockerfile: remotes/doc-ingest/Dockerfile
+    image: eip-plugin-doc-ingest
+    container_name: eip-plugin-doc-ingest
+    logging: *flog
+    ports: ["3013:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  plugin-rag-search:
+    build:
+      context: ./frontend
+      dockerfile: remotes/rag-search/Dockerfile
+    image: eip-plugin-rag-search
+    container_name: eip-plugin-rag-search
+    logging: *flog
+    ports: ["3014:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  plugin-widgets:
+    build:
+      context: ./frontend
+      dockerfile: remotes/widgets/Dockerfile
+    image: eip-plugin-widgets
+    container_name: eip-plugin-widgets
+    logging: *flog
+    ports: ["3015:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  plugin-decision-log:
+    build:
+      context: ./frontend
+      dockerfile: remotes/decision-log/Dockerfile
+    image: eip-plugin-decision-log
+    container_name: eip-plugin-decision-log
+    logging: *flog
+    ports: ["3016:80"]
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+volumes:
+  # Whisper ASR weights - see the whisper service for why this must persist.
+  eip-whisper-models:
+    name: eip-whisper-models
+  eip-doc-ingest-data:
+    name: eip-doc-ingest-data
+  # (ingest_drivers named volume replaced by a ./drivers host bind mount on the
+  # data-ingestion service so operators can drop extra JDBC driver jars in place;
+  # see drivers/README.md.)
+  # (eip-platform-registry-data volume removed — platform-registry now stores
+  # its manifests in ArcadeDB instead of an H2 file, see commit 0f882a4.)
+  # eip-app machine-identity files (project-id / client-id / client-secret),
+  # written by the infisical-seed job in the infra stack (project eip-infra).
+  # Declared external so app services can mount the same volume read-only and
+  # read the identity via secrets.*-file — no secret literal lives in compose
+  # or .env. start.sh always brings up eip-infra first.
+  infisical_svc:
+    external: true
+    name: eip-infra_infisical_svc
+  # External DB connections registry (connections.json), written by the
+  # connections-seed job in the infra stack (project eip-infra). platform-core
+  # mounts it read-write; every other ArcadeDB service mounts it read-only and
+  # the bootstrap resolver in eip-core-dbregistry reads it at startup.
+  eip_connections:
+    external: true
+    name: eip-infra_eip_connections

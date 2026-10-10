@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: eip-mcp-mail
+  ai:
+    mcp:
+      server:
+        name: eip-mcp-mail
+        version: 1.0.0
+
+eip:
+  mcp:
+    mail:
+      server-id: eip-mcp-mail
+      mcp-endpoint: http://eip-mcp-mail:8080/mcp
+      health-url: http://eip-mcp-mail:8080/actuator/health
+      registry-base-url: ${EIP_REGISTRY_URL:http://eip-platform-registry:8093}
+      mail-insight-base-url: ${EIP_MAIL_INSIGHT_URL:http://eip-mail-insight:8092}
+      register-on-startup: true
+      internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+
+secrets:
+  host:               ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment:        ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    # Application code: INFO and above, so both INFO and ERROR events from
+    # io.orphos.eip.mcp.mail.** reach the Console + RollingFile appenders.
+    io.orphos.eip.mcp.mail: INFO
+    # Shared platform libraries this server runs on (tenant resolution, outbound
+    # HTTP, resilience) — same level, so their WARNs land in the JSON stream too.
+    io.orphos.eip.common: INFO
+    io.orphos.eip.mcp.spec: INFO
+    # Spring libraries: errors only — framework failures still surface in the
+    # JSON stream, without the framework's own INFO/DEBUG chatter.
+    org.springframework: ERROR
+    org.springframework.security: INFO

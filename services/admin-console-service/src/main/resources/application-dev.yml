@@ -1,0 +1,24 @@
+# Developer profile for admin-console-service.
+#
+# Activated by SPRING_PROFILES_ACTIVE=dev. In the compose stack that comes from
+# EIP_PROFILE in .env (docker-compose.app.yml passes ${EIP_PROFILE:-prod}), so a
+# developer opts in by setting EIP_PROFILE=dev locally and nothing else changes.
+#
+# Only keys that DIFFER from application.yml belong in this file — Spring merges
+# this document over the base, so anything not named below keeps its base value.
+#
+# No log4j2.xml change is needed for DEBUG to actually appear. Spring Boot's
+# Log4J2LoggingSystem applies these levels via Configurator.setLevel() on the
+# named logger, which overrides <Root level="INFO"> for that logger alone;
+# appenders are inherited from Root and neither Console nor RollingFile carries a
+# ThresholdFilter that would drop the extra events. Adding one there would
+# silently undo this file.
+logging:
+  level:
+    # Full detail from application code while developing.
+    io.orphos.eip.admin: DEBUG
+    # The base profile pins this to ERROR to keep the production JSON stream
+    # clean, but that also suppresses Boot's own startup output ("Tomcat started
+    # on port 8094", auto-configuration and mapping reports) — the part a
+    # developer most wants. Back to INFO here.
+    org.springframework: INFO

@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen"
+    android:orientation="vertical">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="52dp"
+            android:paddingBottom="24dp">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:gravity="center_vertical" android:orientation="horizontal">
+                <ImageView android:id="@+id/summary_back" android:layout_width="26dp" android:layout_height="26dp"
+                    android:clickable="true" android:focusable="true"
+                    android:src="@drawable/ic_arrow_back" app:tint="@color/text" />
+                <TextView android:id="@+id/summary_header_title"
+                    android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                    android:layout_marginStart="12dp" android:text="@string/capture_summary_title"
+                    android:textColor="@color/text" android:textSize="22sp" android:textStyle="bold"
+                    android:maxLines="1" android:ellipsize="end" />
+                <!-- Shared header bell (see HeaderActions) -->
+                <FrameLayout android:id="@+id/btn_bell" android:layout_width="46dp" android:layout_height="38dp"
+                    android:background="@drawable/card_bg_2" android:clickable="true" android:focusable="true">
+                    <ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center"
+                        android:src="@drawable/ic_bell" app:tint="@color/text" />
+                    <View android:id="@+id/bell_badge" android:visibility="gone"
+                        android:layout_width="7dp" android:layout_height="7dp" android:layout_gravity="top|end"
+                        android:layout_marginTop="9dp" android:layout_marginEnd="12dp"
+                        android:background="@drawable/circle_icon" android:backgroundTint="@color/red" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <!-- Captured badge -->
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:gravity="center_vertical" android:orientation="horizontal"
+                android:background="@drawable/chip_soft" android:backgroundTint="@color/green_deep"
+                android:paddingHorizontal="12dp" android:paddingVertical="7dp">
+                <ImageView android:layout_width="16dp" android:layout_height="16dp"
+                    android:src="@drawable/ic_check_circle" app:tint="@color/green" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp" android:fontFamily="sans-serif-medium"
+                    android:text="@string/capture_processed" android:textColor="@color/green" android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Saved voice note: what it is and when it was recorded -->
+            <TextView android:id="@+id/summary_meta"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" android:textColor="@color/text_muted"
+                android:textSize="12sp" android:visibility="gone" />
+
+            <!-- Review notice (AI unavailable / handwriting not read) -->
+            <TextView android:id="@+id/summary_notice"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" android:background="@drawable/card_bg_2"
+                android:padding="12dp" android:lineSpacingMultiplier="1.2"
+                android:textColor="@color/text_secondary" android:textSize="13sp"
+                android:visibility="gone" />
+
+            <!-- File name (review only) -->
+            <LinearLayout android:id="@+id/summary_name_section"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:visibility="gone">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp" android:fontFamily="sans-serif-medium"
+                    android:text="@string/review_file_name" android:textColor="@color/text"
+                    android:textSize="17sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:background="@drawable/card_bg_2"
+                    android:padding="12dp">
+                    <EditText android:id="@+id/summary_file_name"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:background="@null" android:hint="@string/review_file_name_hint"
+                        android:importantForAutofill="no" android:inputType="textCapSentences"
+                        android:maxLength="80" android:maxLines="1"
+                        android:textColor="@color/text" android:textColorHint="@color/text_muted"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- The handwriting as captured -->
+            <FrameLayout android:id="@+id/summary_image_card"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:background="@drawable/card_bg_2"
+                android:padding="6dp" android:visibility="gone">
+                <ImageView android:id="@+id/summary_image"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:adjustViewBounds="true" android:maxHeight="280dp"
+                    android:contentDescription="@string/capture_handwriting"
+                    android:scaleType="fitCenter" />
+            </FrameLayout>
+
+            <!-- The voice note as recorded -->
+            <LinearLayout android:id="@+id/summary_audio_section"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:visibility="gone">
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp" android:fontFamily="sans-serif-medium"
+                    android:text="@string/review_recording_heading" android:textColor="@color/text"
+                    android:textSize="17sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:background="@drawable/card_bg_2"
+                    android:gravity="center_vertical" android:orientation="horizontal"
+                    android:padding="12dp">
+                    <FrameLayout android:id="@+id/summary_audio_play"
+                        android:layout_width="44dp" android:layout_height="44dp"
+                        android:background="@drawable/circle_icon" android:backgroundTint="@color/primary"
+                        android:clickable="true" android:focusable="true"
+                        android:contentDescription="@string/audio_play" android:enabled="false">
+                        <ImageView android:id="@+id/summary_audio_play_icon"
+                            android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_gravity="center" android:src="@drawable/ic_play"
+                            app:tint="@color/on_primary" />
+                    </FrameLayout>
+                    <SeekBar android:id="@+id/summary_audio_seek"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:layout_marginStart="6dp"
+                        android:enabled="false"
+                        android:progressTint="@color/primary" android:thumbTint="@color/primary" />
+                    <TextView android:id="@+id/summary_audio_time"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:fontFamily="monospace" android:text="@string/vn_timer"
+                        android:textColor="@color/text_secondary" android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Extracted text -->
+            <LinearLayout android:id="@+id/summary_content_section"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:visibility="gone">
+                <TextView android:id="@+id/summary_content_heading"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp" android:fontFamily="sans-serif-medium"
+                    android:text="@string/review_extracted_heading" android:textColor="@color/text"
+                    android:textSize="17sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:background="@drawable/card_bg_2"
+                    android:orientation="vertical" android:padding="14dp">
+                    <TextView android:id="@+id/summary_content"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:lineSpacingMultiplier="1.25" android:textColor="@color/text"
+                        android:textIsSelectable="true" android:textSize="14sp" />
+                    <EditText android:id="@+id/summary_content_edit"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:background="@null" android:gravity="top"
+                        android:hint="@string/review_text_hint" android:importantForAutofill="no"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:lineSpacingMultiplier="1.25" android:minLines="3"
+                        android:textColor="@color/text" android:textColorHint="@color/text_muted"
+                        android:textSize="14sp" android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- AI Summary card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/ai_prompt_bg"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <LinearLayout
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:gravity="center_vertical" android:orientation="horizontal">
+                    <ImageView android:layout_width="22dp" android:layout_height="22dp"
+                        android:src="@drawable/orphos_orb" />
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" android:fontFamily="sans-serif-medium"
+                        android:text="@string/capture_summary_heading" android:textColor="@color/purple"
+                        android:textSize="15sp" android:textStyle="bold" />
+                </LinearLayout>
+                <TextView android:id="@+id/summary_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:lineSpacingMultiplier="1.25"
+                    android:textColor="@color/text"
+                    android:textSize="14sp"
+                    tools:text="Discussed Q3 roadmap priorities and the hiring plan for the platform team." />
+                <EditText android:id="@+id/summary_text_edit"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:background="@null" android:gravity="top"
+                    android:hint="@string/review_summary_hint" android:importantForAutofill="no"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:lineSpacingMultiplier="1.25" android:minLines="2"
+                    android:textColor="@color/text" android:textColorHint="@color/text_muted"
+                    android:textSize="14sp" android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Key points -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/capture_key_points"
+                android:textColor="@color/text"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <LinearLayout android:id="@+id/summary_points"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+
+            <LinearLayout android:id="@+id/summary_points_edit_card"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:background="@drawable/card_bg_2"
+                android:padding="14dp" android:visibility="gone">
+                <EditText android:id="@+id/summary_points_edit"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:background="@null" android:gravity="top"
+                    android:hint="@string/review_points_hint" android:importantForAutofill="no"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:lineSpacingMultiplier="1.25" android:minLines="2"
+                    android:textColor="@color/text" android:textColorHint="@color/text_muted"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Bottom actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="24dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/summary_share"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="54dp"
+            android:layout_marginEnd="12dp"
+            android:text="@string/capture_share"
+            android:textColor="@color/link"
+            android:textSize="15sp"
+            app:cornerRadius="14dp"
+            app:icon="@drawable/ic_share"
+            app:iconTint="@color/link"
+            app:strokeColor="@color/border" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/summary_save"
+            android:layout_width="0dp"
+            android:layout_height="54dp"
+            android:layout_weight="1"
+            android:text="@string/capture_save_continue"
+            android:textSize="15sp"
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="14dp"
+            app:icon="@drawable/ic_check_circle"
+            app:iconGravity="textStart"
+            app:iconTint="@color/on_primary" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,20 @@
+# Perses (Apache-2.0, CNCF Sandbox) — dashboard UI, replaces Grafana (AGPL).
+# Superset of the image's bundled /etc/perses/config.yaml: the database +
+# schemas sections must be kept (the binary resolves CUE schemas from these
+# paths), with our provisioning folder added on top.
+database:
+  file:
+    folder: "/perses"
+    extension: "json"
+
+schemas:
+  panels_path: "/etc/perses/cue/schemas/panels"
+  queries_path: "/etc/perses/cue/schemas/queries"
+  datasources_path: "/etc/perses/cue/schemas/datasources"
+  variables_path: "/etc/perses/cue/schemas/variables"
+  interval: "6h"
+
+# Loads the Prometheus GlobalDatasource (and any dashboards) on startup.
+provisioning:
+  folders:
+    - /perses/provisioning

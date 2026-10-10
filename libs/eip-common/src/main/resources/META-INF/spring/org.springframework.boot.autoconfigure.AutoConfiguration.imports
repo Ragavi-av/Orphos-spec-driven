@@ -1,0 +1,10 @@
+io.orphos.eip.common.web.CommonWebAutoConfiguration
+io.orphos.eip.common.web.CorsAutoConfiguration
+io.orphos.eip.common.web.ratelimit.RateLimitAutoConfiguration
+io.orphos.eip.common.tenant.TenantAutoConfiguration
+io.orphos.eip.common.security.MultiIssuerJwtAutoConfiguration
+io.orphos.eip.common.security.RoleHierarchyAutoConfiguration
+io.orphos.eip.common.events.EipEventsAutoConfiguration
+io.orphos.eip.common.http.EipHttpAutoConfiguration
+io.orphos.eip.common.resilience.EipResilienceAutoConfiguration
+io.orphos.eip.common.logging.ClientIpLoggingAutoConfiguration

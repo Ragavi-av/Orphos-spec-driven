@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log4j2 config for platform-core-service.
+
+  Per-package levels are NOT hardcoded here — they're set via logging.level.* in application.yml /
+  application-{dev,test,prod}.yml, and Spring Boot applies those on top of whatever LoggingSystem
+  backs the app, Log4j2 included. This file only owns *how* logs are formatted and *where* they go
+  (console + rolling file), which YAML's logging.level can't control.
+
+  Output is JSON (one object per line), shaped by log4j2-json-layout.json — see that file for the
+  field list (timestamp, logType, message, applicationName, serviceName, hostIpAddress, podName,
+  podNamespace, nodeName, clientIpAddress, tenantId, traceId, spanId, className, methodName,
+  lineNumber, errorClassName, errorMessage, stackTrace).
+
+  Where the non-obvious fields come from:
+    hostIpAddress   the HOST_IP system property, set in platform-core-service's main() before Spring
+                    (and therefore Log4j2) starts — see resolveHostIp there.
+    clientIpAddress Log4j2's ThreadContext (MDC), populated per-request by ClientIpLoggingFilter;
+                    only present on lines emitted while handling an HTTP request.
+    tenantId        the same MDC, populated by eip-common's TenantResolutionFilter chain where the
+                    request carries a tenant; absent otherwise.
+    traceId/spanId  Micrometer Tracing (io.micrometer:micrometer-tracing-bridge-otel, pulled in via
+                    eip-common — the Spring Boot 3 successor to the retired Spring Cloud Sleuth),
+                    which writes them into the MDC for every span; absent outside an active trace.
+    podName /       the standard Kubernetes Downward API env vars (POD_NAME, POD_NAMESPACE,
+    podNamespace /  NODE_NAME) — populate them in the pod spec's `env:` block via `fieldRef`. On a
+    nodeName        non-Kubernetes deployment (plain docker-compose, as today) they're simply absent
+                    and each field resolves to an empty string.
+    errorClassName/ only populated when the Throwable is passed as the final argument to the log
+    errorMessage/   call (`log.error("...", e)`). Passing only `e.getMessage()` as a String does
+    stackTrace      not attach it to the event, so callers must pass the exception object itself.
+
+  Every "pattern" resolver in the template carries "stackTraceEnabled": false. That resolver is
+  PatternLayout underneath, and PatternLayout appends the throwable to its output unless the
+  pattern itself consumes it — so without the flag every one of those fields (applicationName,
+  serviceName, hostIpAddress, podName, podNamespace, nodeName) gets the whole stack trace glued
+  onto its value on any log call that carries an exception. Don't drop it.
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+    <Properties>
+        <!-- Override with -DLOG_PATH=/var/log/platform-core-service or the LOG_PATH env var. -->
+        <Property name="LOG_PATH">${sys:LOG_PATH:-logs}</Property>
+        <Property name="SERVICE_NAME">platform-core-service</Property>
+        <Property name="APPLICATION_NAME">Orphos-EIP</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <JsonTemplateLayout eventTemplateUri="classpath:log4j2-json-layout.json" locationInfoEnabled="true"/>
+        </Console>
+
+        <RollingFile name="RollingFile"
+                     fileName="${LOG_PATH}/platform-core-service.log"
+                     filePattern="${LOG_PATH}/platform-core-service-%d{yyyy-MM-dd}-%i.log.gz">
+            <JsonTemplateLayout eventTemplateUri="classpath:log4j2-json-layout.json" locationInfoEnabled="true"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50MB"/>
+            </Policies>
+            <!-- Keep at most 14 rolled files before the oldest is deleted. -->
+            <DefaultRolloverStrategy max="14"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- includeLocation: className/methodName/lineNumber in the JSON output need the call-site
+             captured; Log4j2 skips that work by default since it's the most expensive part of
+             building a log event. -->
+        <Root level="INFO" includeLocation="true">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Root>
+    </Loggers>
+
+</Configuration>

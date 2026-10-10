@@ -1,0 +1,68 @@
+server:
+  port: 8099
+
+spring:
+  application:
+    name: voice-service
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    multipart:
+      # A dictated question is seconds long, not minutes. These caps are the first
+      # line of defence; VoiceController re-checks against voice.max-clip-bytes so
+      # the limit is reported to the user as a readable message rather than as a
+      # raw Tomcat 500.
+      max-file-size: 25MB
+      max-request-size: 26MB
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+
+voice:
+  whisper:
+    url: ${VOICE_WHISPER_URL:http://eip-whisper:9000}
+    timeout-seconds: ${VOICE_WHISPER_TIMEOUT_SECONDS:120}
+  registry:
+    url: ${VOICE_REGISTRY_URL:http://eip-platform-registry:8093}
+  self:
+    health-url: ${VOICE_SELF_HEALTH_URL:http://eip-voice:8099/actuator/health}
+    version: 1.0.0
+  # 25 MB — roughly 20 minutes of Opus at the bitrate MediaRecorder defaults to.
+  max-clip-bytes: ${VOICE_MAX_CLIP_BYTES:26214400}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    # OUTBOUND — attached to the tenant-discovery poll and to self-registration.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # INBOUND — lets InternalServiceTokenAuthenticationFilter accept internal callers.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation — same arrangement as every other service: the
+# trusted-issuer set is polled from platform-core so a new tenant is accepted
+# without restarting this service.
+eip:
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

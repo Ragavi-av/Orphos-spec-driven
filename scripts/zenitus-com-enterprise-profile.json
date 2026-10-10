@@ -1,0 +1,67 @@
+{
+  "externalId": "zenitus-group",
+  "company": {
+    "name": "Zenitus Technologies",
+    "legalName": "Zenitus Technologies Pvt. Ltd.",
+    "tradeName": "Zenitus",
+    "foundedYear": 2020,
+    "registrationNumber": "U72900TN2020PTC135167",
+    "website": "https://zenitus.com",
+    "companyType": "PRIVATE",
+    "stockSymbol": null,
+    "employeeCount": 23,
+    "annualRevenue": null,
+    "currency": "INR",
+    "description": "IT consulting and software development group serving the technology needs of Japanese and global customers. Delivers offshore development, in-house packaged products (ClaimZ for insurance, TrackZ for tracking, RecruitZ for HR), consulting and outsourcing, 24/7 maintenance and software testing through a bilingual engineering team.",
+    "headquartersLocationExternalId": "loc-chennai"
+  },
+  "mission": "Make a difference by enabling every business to run seamlessly through technology, staying customer-centric, simple and transparent.",
+  "vision": "Digital transformation is an inevitable part of every business; make that transformation faster, easier and more cost-effective through technology.",
+  "values": [
+    { "externalId": "val-customer", "name": "Customer needs first", "statement": "Always put the customer's needs first through innovation and creativity." },
+    { "externalId": "val-diversity", "name": "Diversity & bilingual culture", "statement": "Foster a diverse, bilingual environment where talent is the greatest asset." },
+    { "externalId": "val-excellence", "name": "Technical excellence & transparency", "statement": "Deliver high-quality, secure engineering with honesty and transparency." }
+  ],
+  "functionalAreas": [
+    { "externalId": "fa-offshore", "name": "Offshore Development", "description": "Cost-effective development by skilled bilingual offshore engineers backed by onsite experts." },
+    { "externalId": "fa-products", "name": "Products & Solutions", "description": "In-house packaged products: ClaimZ (insurance), TrackZ (tracking) and RecruitZ (HR)." },
+    { "externalId": "fa-consulting", "name": "Consulting & Outsourcing", "description": "Bilingual software engineering and consulting across SAP, web and mobile platforms." },
+    { "externalId": "fa-maintenance", "name": "Maintenance Services", "description": "24/7 onsite and offshore application maintenance by bilingual engineers." },
+    { "externalId": "fa-testing", "name": "Testing Services", "description": "Black-box, grey-box, white-box and security vulnerability testing." }
+  ],
+  "industries": [
+    { "externalId": "ind-insurance", "name": "Insurance", "sectorCode": "NAICS-524", "description": "Insurance operations and claims software (ClaimZ)." },
+    { "externalId": "ind-logistics", "name": "Logistics & Tracking", "sectorCode": "NAICS-488", "description": "Tracking and logistics solutions (TrackZ)." },
+    { "externalId": "ind-hr", "name": "Human Resources Technology", "sectorCode": "NAICS-5613", "description": "Recruitment and HR tooling (RecruitZ)." },
+    { "externalId": "ind-finance", "name": "Financial Services & Banking", "sectorCode": "NAICS-52", "description": "High-security, customer-specific banking and financial software." }
+  ],
+  "locations": [
+    { "externalId": "loc-chennai", "name": "Chennai HQ", "addressLine": "K3, Block 5, Sabari Mondrian, Wipro Street, Sholinganallur", "city": "Chennai", "stateProvince": "Tamil Nadu", "country": "India", "postalCode": "600119", "latitude": 12.9010, "longitude": 80.2279, "timezone": "Asia/Kolkata" },
+    { "externalId": "loc-tokyo", "name": "Tokyo Office", "addressLine": "Nihonbashi 1-2-10, Toyo Building 5F, Chuo-ku", "city": "Tokyo", "stateProvince": "Tokyo", "country": "Japan", "postalCode": "103-0027", "latitude": 35.6833, "longitude": 139.7745, "timezone": "Asia/Tokyo" },
+    { "externalId": "loc-singapore", "name": "Singapore Office", "addressLine": "192 Waterloo Street #05-03, Sky Line Building", "city": "Singapore", "stateProvince": "Singapore", "country": "Singapore", "postalCode": "187966", "latitude": 1.2996, "longitude": 103.8517, "timezone": "Asia/Singapore" }
+  ],
+  "branches": [
+    { "externalId": "br-chennai", "name": "Chennai HQ", "branchType": "HEADQUARTERS", "openedDate": "2020-01-01", "description": "Global headquarters and offshore delivery centre.", "locationExternalId": "loc-chennai" },
+    { "externalId": "br-tokyo", "name": "Japan Office", "branchType": "REGIONAL", "openedDate": "2021-03-01", "description": "Zenitus Technologies K.K. — sales and delivery for Japanese customers.", "locationExternalId": "loc-tokyo" },
+    { "externalId": "br-singapore", "name": "Singapore Office", "branchType": "REGIONAL", "openedDate": "2022-01-01", "description": "Zenitus Technologies Pte. Ltd. — APAC presence.", "locationExternalId": "loc-singapore" }
+  ],
+  "orgUnits": [
+    { "externalId": "ou-delivery", "name": "Delivery & Engineering", "unitType": "DIVISION", "unitCode": "DEL", "description": "Offshore development, products and engineering.", "parentExternalId": null, "headExecutiveExternalId": "exec-dir-prodtech", "responsibleForAreaExternalIds": ["fa-offshore", "fa-products"] },
+    { "externalId": "ou-japan-ops", "name": "Japan Operations", "unitType": "DIVISION", "unitCode": "JPN", "description": "Sales, consulting and operations for Japanese customers.", "parentExternalId": null, "headExecutiveExternalId": "exec-dir-salesops", "responsibleForAreaExternalIds": ["fa-consulting"] },
+    { "externalId": "ou-quality", "name": "Quality & Support", "unitType": "TEAM", "unitCode": "DEL-QA", "description": "Testing and 24/7 maintenance.", "parentExternalId": "ou-delivery", "headExecutiveExternalId": "exec-dir-projtech", "responsibleForAreaExternalIds": ["fa-testing", "fa-maintenance"] }
+  ],
+  "executives": [
+    { "externalId": "exec-dir-prodtech", "displayName": "Director — Products & Technology", "jobTitle": "Director", "appointedDate": "2020-01-01", "companyLeader": true, "memberOfOrgUnitExternalId": "ou-delivery", "reportsToExternalId": null },
+    { "externalId": "exec-dir-salesops", "displayName": "Director — Sales & Operations", "jobTitle": "Director", "appointedDate": "2021-03-01", "companyLeader": true, "memberOfOrgUnitExternalId": "ou-japan-ops", "reportsToExternalId": null },
+    { "externalId": "exec-dir-projtech", "displayName": "Director — Projects & Technology", "jobTitle": "Director", "appointedDate": "2021-03-01", "companyLeader": true, "memberOfOrgUnitExternalId": "ou-quality", "reportsToExternalId": null },
+    { "externalId": "exec-advisor", "displayName": "Advisor — Strategy & Innovation", "jobTitle": "Advisor", "appointedDate": "2020-06-01", "companyLeader": false, "memberOfOrgUnitExternalId": null, "reportsToExternalId": null }
+  ],
+  "clients": [
+    { "externalId": "cl-vojvoj", "name": "VojVoj AS", "clientTier": "STANDARD", "clientSince": "2021-01-01", "relationshipStatus": "ACTIVE", "description": "Norwegian firm; social media mobile application built by Zenitus.", "locationExternalId": null, "industryExternalIds": ["ind-hr"] },
+    { "externalId": "cl-gid", "name": "GID", "clientTier": "STANDARD", "clientSince": "2021-06-01", "relationshipStatus": "ACTIVE", "description": "Web development client.", "locationExternalId": null, "industryExternalIds": ["ind-finance"] }
+  ],
+  "engagements": [
+    { "externalId": "eng-vojvoj-app", "name": "Social Media Mobile App Development", "startDate": "2021-02-01", "endDate": null, "engagementStatus": "COMPLETED", "contractValue": null, "currency": null, "description": "Design and build of a niche social media mobile application.", "clientExternalId": "cl-vojvoj", "industryExternalId": "ind-hr", "deliveredByOrgUnitExternalId": "ou-delivery" },
+    { "externalId": "eng-gid-web", "name": "Web Development Program", "startDate": "2021-07-01", "endDate": null, "engagementStatus": "ACTIVE", "contractValue": null, "currency": null, "description": "Ongoing web development delivery.", "clientExternalId": "cl-gid", "industryExternalId": "ind-finance", "deliveredByOrgUnitExternalId": "ou-delivery" }
+  ]
+}

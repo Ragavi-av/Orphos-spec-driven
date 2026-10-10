@@ -1,0 +1,341 @@
+{
+  "profileType": "domain",
+  "_comment": [
+    "Business-domain instance data for the Zenitus tenant: finance, HR, commercial,",
+    "strategy, risk and IT ops. Loaded by scripts/ontology/LoadPersonaDomainProfile.java.",
+    "",
+    "All figures are SYNTHETIC sample data sized to the real shape of the tenant",
+    "(23 employees, INR, offices in Chennai / Tokyo / Singapore, fiscal year Apr-Mar).",
+    "They are internally consistent with the metricObservations in",
+    "zenitus-governance-profile.json - if you change a cash-flow month here, change the",
+    "matching observation there or the dashboards will contradict the ledger.",
+    "",
+    "References into data this file does NOT own (and which must already be loaded by",
+    "scripts/enterprise/LoadEnterpriseProfile):",
+    "  org units   ou-delivery, ou-japan-ops, ou-quality",
+    "  executives  exec-dir-prodtech, exec-dir-salesops, exec-dir-projtech, exec-advisor",
+    "  clients     cl-vojvoj, cl-gid        engagements  eng-vojvoj-app, eng-gid-web",
+    "  company     zenitus-group",
+    "Periods (prd-*) and metrics (met-*) come from the governance profile.",
+    "",
+    "No PII: every amount attaches to a cost centre, org unit, account, grade or",
+    "period - never to a person. There is no per-person salary or rating anywhere in",
+    "this file, by design. See the header of ontology/eip-hr.owl."
+  ],
+
+  "finance": {
+    "glAccounts": [
+      { "externalId": "gl-4000", "name": "Revenue",              "accountCode": "4000", "accountType": "REVENUE" },
+      { "externalId": "gl-4100", "name": "Services Revenue",     "accountCode": "4100", "accountType": "REVENUE", "parentAccountExternalId": "gl-4000" },
+      { "externalId": "gl-4200", "name": "Product Revenue",      "accountCode": "4200", "accountType": "REVENUE", "parentAccountExternalId": "gl-4000", "description": "ClaimZ, TrackZ and RecruitZ licence and subscription income." },
+      { "externalId": "gl-5000", "name": "Operating Expenses",   "accountCode": "5000", "accountType": "EXPENSE" },
+      { "externalId": "gl-5100", "name": "Personnel Cost",       "accountCode": "5100", "accountType": "EXPENSE", "parentAccountExternalId": "gl-5000" },
+      { "externalId": "gl-5200", "name": "Technology & Cloud",   "accountCode": "5200", "accountType": "EXPENSE", "parentAccountExternalId": "gl-5000", "description": "The IT spend line - reachable by the CTO through gov:DomainItSpend without opening the rest of the ledger." },
+      { "externalId": "gl-5300", "name": "Facilities",           "accountCode": "5300", "accountType": "EXPENSE", "parentAccountExternalId": "gl-5000" },
+      { "externalId": "gl-5400", "name": "Travel & Onsite",      "accountCode": "5400", "accountType": "EXPENSE", "parentAccountExternalId": "gl-5000" },
+      { "externalId": "gl-5500", "name": "Professional Fees",    "accountCode": "5500", "accountType": "EXPENSE", "parentAccountExternalId": "gl-5000" },
+      { "externalId": "gl-1000", "name": "Cash & Bank",          "accountCode": "1000", "accountType": "ASSET" }
+    ],
+
+    "vendors": [
+      { "externalId": "ven-cloud",     "name": "Cloud Infrastructure Provider", "vendorCategory": "TECHNOLOGY", "description": "Primary IaaS/PaaS provider for the development platform and ClaimZ hosting." },
+      { "externalId": "ven-licensing", "name": "Productivity Suite Licensing",  "vendorCategory": "TECHNOLOGY" },
+      { "externalId": "ven-office-jp", "name": "Tokyo Office Landlord",         "vendorCategory": "FACILITIES" },
+      { "externalId": "ven-audit",     "name": "External Audit Firm",           "vendorCategory": "PROFESSIONAL_SERVICES" }
+    ],
+
+    "budgets": [
+      { "externalId": "bud-fy2027-delivery", "name": "Delivery & Engineering FY2027", "currency": "INR", "orgUnitExternalId": "ou-delivery",   "periodExternalId": "prd-fy2027" },
+      { "externalId": "bud-fy2027-japan",    "name": "Japan Operations FY2027",       "currency": "INR", "orgUnitExternalId": "ou-japan-ops",  "periodExternalId": "prd-fy2027" },
+      { "externalId": "bud-fy2027-quality",  "name": "Quality & Support FY2027",      "currency": "INR", "orgUnitExternalId": "ou-quality",    "periodExternalId": "prd-fy2027" },
+      { "externalId": "bud-fy2027-tech",     "name": "Technology & Cloud FY2027",     "currency": "INR", "orgUnitExternalId": "ou-delivery",   "periodExternalId": "prd-fy2027", "description": "The IT budget the CTO owns." }
+    ],
+
+    "budgetLines": [
+      { "externalId": "bl-delivery-personnel", "name": "Delivery personnel", "plannedAmount": 26000000, "actualAmount": 13100000, "committedAmount": 12800000, "currency": "INR", "budgetExternalId": "bud-fy2027-delivery", "accountExternalId": "gl-5100", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-delivery-travel",    "name": "Delivery travel",    "plannedAmount": 1200000,  "actualAmount": 780000,   "committedAmount": 150000,  "currency": "INR", "budgetExternalId": "bud-fy2027-delivery", "accountExternalId": "gl-5400", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-japan-personnel",    "name": "Japan personnel",    "plannedAmount": 12500000, "actualAmount": 6600000,  "committedAmount": 5900000, "currency": "INR", "budgetExternalId": "bud-fy2027-japan",    "accountExternalId": "gl-5100", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-japan-facilities",   "name": "Tokyo office",       "plannedAmount": 3600000,  "actualAmount": 1800000,  "committedAmount": 1800000, "currency": "INR", "budgetExternalId": "bud-fy2027-japan",    "accountExternalId": "gl-5300", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-japan-travel",       "name": "Onsite travel",      "plannedAmount": 2400000,  "actualAmount": 1950000,  "committedAmount": 600000,  "currency": "INR", "budgetExternalId": "bud-fy2027-japan",    "accountExternalId": "gl-5400", "periodExternalId": "prd-fy2027", "description": "Over-committed: actual + committed exceeds plan. This is the row the Budget Variance widget should surface." },
+      { "externalId": "bl-quality-personnel",  "name": "Quality personnel",  "plannedAmount": 5500000,  "actualAmount": 2700000,  "committedAmount": 2700000, "currency": "INR", "budgetExternalId": "bud-fy2027-quality",  "accountExternalId": "gl-5100", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-tech-cloud",         "name": "Cloud infrastructure","plannedAmount": 4800000,  "actualAmount": 2560000,  "committedAmount": 1200000, "currency": "INR", "budgetExternalId": "bud-fy2027-tech",     "accountExternalId": "gl-5200", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-tech-licensing",     "name": "Software licensing", "plannedAmount": 1800000,  "actualAmount": 900000,   "committedAmount": 900000,  "currency": "INR", "budgetExternalId": "bud-fy2027-tech",     "accountExternalId": "gl-5200", "periodExternalId": "prd-fy2027" },
+      { "externalId": "bl-audit-fees",         "name": "Audit & compliance", "plannedAmount": 900000,   "actualAmount": 450000,   "committedAmount": 450000,  "currency": "INR", "budgetExternalId": "bud-fy2027-delivery", "accountExternalId": "gl-5500", "periodExternalId": "prd-fy2027" }
+    ],
+
+    "cashFlowEntries": [
+      { "externalId": "cf-2026-04", "name": "Cash flow, April 2026",  "inflowAmount": 12650000, "outflowAmount": 11420000, "closingBalance": 28900000, "currency": "INR", "periodExternalId": "prd-2026-04" },
+      { "externalId": "cf-2026-05", "name": "Cash flow, May 2026",    "inflowAmount": 12980000, "outflowAmount": 11610000, "closingBalance": 30270000, "currency": "INR", "periodExternalId": "prd-2026-05" },
+      { "externalId": "cf-2026-06", "name": "Cash flow, June 2026",   "inflowAmount": 13120000, "outflowAmount": 12040000, "closingBalance": 31350000, "currency": "INR", "periodExternalId": "prd-2026-06" },
+      { "externalId": "cf-2026-07", "name": "Cash flow, July 2026",   "inflowAmount": 13400000, "outflowAmount": 11750000, "closingBalance": 33000000, "currency": "INR", "periodExternalId": "prd-2026-07" },
+      { "externalId": "cf-2026-08", "name": "Cash flow, August 2026", "inflowAmount": 12100000, "outflowAmount": 12480000, "closingBalance": 32620000, "currency": "INR", "periodExternalId": "prd-2026-08", "description": "First negative net month of FY2027 - matches obs-netcash-2026-08 (RED)." }
+    ],
+
+    "invoices": [
+      { "externalId": "inv-gid-2026-07",    "name": "GID web development, July 2026",    "amount": 2850000, "currency": "INR", "invoiceDirection": "RECEIVABLE", "invoiceStatus": "PAID",    "dueDate": "2026-08-15", "clientExternalId": "cl-gid",    "engagementExternalId": "eng-gid-web" },
+      { "externalId": "inv-gid-2026-08",    "name": "GID web development, August 2026",  "amount": 2850000, "currency": "INR", "invoiceDirection": "RECEIVABLE", "invoiceStatus": "OVERDUE", "dueDate": "2026-09-15", "clientExternalId": "cl-gid",    "engagementExternalId": "eng-gid-web", "description": "Overdue receivable contributing to the August cash dip." },
+      { "externalId": "inv-vojvoj-final",   "name": "VojVoj app final milestone",        "amount": 1450000, "currency": "INR", "invoiceDirection": "RECEIVABLE", "invoiceStatus": "PAID",    "dueDate": "2026-05-30", "clientExternalId": "cl-vojvoj", "engagementExternalId": "eng-vojvoj-app" },
+      { "externalId": "inv-cloud-2026-08",  "name": "Cloud infrastructure, August 2026", "amount": 412000,  "currency": "INR", "invoiceDirection": "PAYABLE",    "invoiceStatus": "ISSUED",  "dueDate": "2026-09-05", "vendorExternalId": "ven-cloud" },
+      { "externalId": "inv-office-jp-q2",   "name": "Tokyo office rent, FY2027 Q2",      "amount": 900000,  "currency": "INR", "invoiceDirection": "PAYABLE",    "invoiceStatus": "PAID",    "dueDate": "2026-07-05", "vendorExternalId": "ven-office-jp" }
+    ],
+
+    "statements": [
+      { "externalId": "stm-pl-fy2026",   "name": "Profit & Loss FY2026",     "statementType": "PROFIT_AND_LOSS", "currency": "INR", "periodExternalId": "prd-fy2026", "companyExternalId": "zenitus-group" },
+      { "externalId": "stm-cf-fy2026",   "name": "Cash Flow Statement FY2026","statementType": "CASH_FLOW",      "currency": "INR", "periodExternalId": "prd-fy2026", "companyExternalId": "zenitus-group" },
+      { "externalId": "stm-bs-fy2026",   "name": "Balance Sheet FY2026",     "statementType": "BALANCE_SHEET",   "currency": "INR", "periodExternalId": "prd-fy2026", "companyExternalId": "zenitus-group" }
+    ]
+  },
+
+  "hr": {
+    "designations": [
+      { "externalId": "des-associate",       "name": "Associate Engineer",        "gradeLevel": 1 },
+      { "externalId": "des-engineer",        "name": "Software Engineer",         "gradeLevel": 2 },
+      { "externalId": "des-qa-engineer",     "name": "QA Engineer",               "gradeLevel": 2 },
+      { "externalId": "des-senior-engineer", "name": "Senior Software Engineer",  "gradeLevel": 3 },
+      { "externalId": "des-consultant",      "name": "Bilingual Consultant",      "gradeLevel": 3 },
+      { "externalId": "des-lead",            "name": "Technical Lead",            "gradeLevel": 4 },
+      { "externalId": "des-manager",         "name": "Delivery Manager",          "gradeLevel": 5 },
+      { "externalId": "des-director",        "name": "Director",                  "gradeLevel": 6 }
+    ],
+
+    "employmentTypes": [
+      { "externalId": "emt-permanent", "name": "Permanent" },
+      { "externalId": "emt-contract",  "name": "Contract" },
+      { "externalId": "emt-intern",    "name": "Intern" }
+    ],
+
+    "skills": [
+      { "externalId": "skl-java",        "name": "Java / Spring" },
+      { "externalId": "skl-react",       "name": "React / Frontend" },
+      { "externalId": "skl-mobile",      "name": "Mobile (iOS / Android)" },
+      { "externalId": "skl-sap",         "name": "SAP" },
+      { "externalId": "skl-japanese",    "name": "Japanese (business level)", "description": "The bilingual capability the company's Japan delivery model depends on - which is why key-person risk rsk-keyperson-jp exists." },
+      { "externalId": "skl-testing",     "name": "Software Testing" },
+      { "externalId": "skl-security",    "name": "Security & Vulnerability Testing" },
+      { "externalId": "skl-cloud",       "name": "Cloud Infrastructure" }
+    ],
+
+    "positions": [
+      { "externalId": "pos-del-lead",       "name": "Technical Lead, Offshore Delivery", "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-delivery",  "designationExternalId": "des-lead",            "requiresSkillExternalIds": ["skl-java", "skl-cloud"] },
+      { "externalId": "pos-del-senior-1",   "name": "Senior Engineer, ClaimZ",           "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-delivery",  "designationExternalId": "des-senior-engineer", "requiresSkillExternalIds": ["skl-java", "skl-react"] },
+      { "externalId": "pos-del-senior-2",   "name": "Senior Engineer, TrackZ",           "positionStatus": "VACANT",  "fteRatio": 1.0, "orgUnitExternalId": "ou-delivery",  "designationExternalId": "des-senior-engineer", "requiresSkillExternalIds": ["skl-java", "skl-mobile"], "description": "Vacant seat - an empty chair is expressible because Position is modelled separately from Employee." },
+      { "externalId": "pos-del-engineer-1", "name": "Software Engineer, RecruitZ",       "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-delivery",  "designationExternalId": "des-engineer",        "requiresSkillExternalIds": ["skl-react"] },
+      { "externalId": "pos-jp-consultant-1","name": "Bilingual Consultant, Tokyo",       "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-japan-ops", "designationExternalId": "des-consultant",      "requiresSkillExternalIds": ["skl-japanese", "skl-sap"] },
+      { "externalId": "pos-jp-consultant-2","name": "Bilingual Consultant, SAP",         "positionStatus": "VACANT",  "fteRatio": 1.0, "orgUnitExternalId": "ou-japan-ops", "designationExternalId": "des-consultant",      "requiresSkillExternalIds": ["skl-japanese", "skl-sap"] },
+      { "externalId": "pos-jp-manager",     "name": "Delivery Manager, Japan",           "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-japan-ops", "designationExternalId": "des-manager",         "requiresSkillExternalIds": ["skl-japanese"] },
+      { "externalId": "pos-qa-lead",        "name": "QA Lead",                           "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-quality",   "designationExternalId": "des-lead",           "requiresSkillExternalIds": ["skl-testing", "skl-security"] },
+      { "externalId": "pos-qa-engineer-1",  "name": "QA Engineer",                       "positionStatus": "FILLED",  "fteRatio": 1.0, "orgUnitExternalId": "ou-quality",   "designationExternalId": "des-qa-engineer",     "requiresSkillExternalIds": ["skl-testing"] },
+      { "externalId": "pos-qa-engineer-2",  "name": "QA Engineer, Security Testing",     "positionStatus": "FROZEN",  "fteRatio": 1.0, "orgUnitExternalId": "ou-quality",   "designationExternalId": "des-qa-engineer",     "requiresSkillExternalIds": ["skl-security"] }
+    ],
+
+    "compensationBands": [
+      { "externalId": "cb-associate",       "name": "Band 1 - Associate",        "bandMinimum": 400000,  "bandMaximum": 700000,  "currency": "INR", "designationExternalId": "des-associate" },
+      { "externalId": "cb-engineer",        "name": "Band 2 - Engineer",         "bandMinimum": 700000,  "bandMaximum": 1200000, "currency": "INR", "designationExternalId": "des-engineer" },
+      { "externalId": "cb-qa-engineer",     "name": "Band 2 - QA Engineer",      "bandMinimum": 650000,  "bandMaximum": 1100000, "currency": "INR", "designationExternalId": "des-qa-engineer" },
+      { "externalId": "cb-senior-engineer", "name": "Band 3 - Senior Engineer",  "bandMinimum": 1200000, "bandMaximum": 1900000, "currency": "INR", "designationExternalId": "des-senior-engineer" },
+      { "externalId": "cb-consultant",      "name": "Band 3 - Consultant",       "bandMinimum": 1500000, "bandMaximum": 2400000, "currency": "INR", "designationExternalId": "des-consultant", "description": "Bilingual premium over the engineering band at the same grade." },
+      { "externalId": "cb-lead",            "name": "Band 4 - Lead",             "bandMinimum": 1900000, "bandMaximum": 2800000, "currency": "INR", "designationExternalId": "des-lead" },
+      { "externalId": "cb-manager",         "name": "Band 5 - Manager",          "bandMinimum": 2600000, "bandMaximum": 3800000, "currency": "INR", "designationExternalId": "des-manager" }
+    ],
+
+    "headcountSnapshots": [
+      { "externalId": "hc-delivery-q1", "name": "Delivery headcount, FY2027 Q1", "headcount": 13, "fteCount": 13.0, "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "hc-japan-q1",    "name": "Japan headcount, FY2027 Q1",    "headcount": 6,  "fteCount": 6.0,  "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "hc-quality-q1",  "name": "Quality headcount, FY2027 Q1",  "headcount": 5,  "fteCount": 4.5,  "orgUnitExternalId": "ou-quality",   "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "hc-delivery-aug","name": "Delivery headcount, Aug 2026",  "headcount": 13, "fteCount": 13.0, "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-2026-08" },
+      { "externalId": "hc-japan-aug",   "name": "Japan headcount, Aug 2026",     "headcount": 6,  "fteCount": 6.0,  "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-2026-08" },
+      { "externalId": "hc-quality-aug", "name": "Quality headcount, Aug 2026",   "headcount": 4,  "fteCount": 3.5,  "orgUnitExternalId": "ou-quality",   "periodExternalId": "prd-2026-08", "description": "Down one from Q1 - the leaver behind atr-quality-q2." }
+    ],
+
+    "attritionSnapshots": [
+      { "externalId": "atr-delivery-q1", "name": "Delivery attrition, FY2027 Q1", "joinerCount": 2, "leaverCount": 1, "attritionRate": 0.077, "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "atr-japan-q1",    "name": "Japan attrition, FY2027 Q1",    "joinerCount": 1, "leaverCount": 0, "attritionRate": 0.0,   "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "atr-quality-q2",  "name": "Quality attrition, FY2027 Q2",  "joinerCount": 0, "leaverCount": 1, "attritionRate": 0.200, "orgUnitExternalId": "ou-quality",   "periodExternalId": "prd-fy2027-q2", "description": "20% quarterly attrition in a 5-person team - the aggregate says what happened without naming anyone." }
+    ],
+
+    "payrollRuns": [
+      { "externalId": "pay-delivery-q2", "name": "Delivery payroll, FY2027 Q2", "totalCost": 6550000, "coveredHeadcount": 13, "minimumPopulation": 5, "currency": "INR", "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-fy2027-q2" },
+      { "externalId": "pay-japan-q2",    "name": "Japan payroll, FY2027 Q2",    "totalCost": 3280000, "coveredHeadcount": 6,  "minimumPopulation": 5, "currency": "INR", "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q2" },
+      {
+        "externalId": "pay-quality-q2", "name": "Quality payroll, FY2027 Q2", "totalCost": 1340000, "coveredHeadcount": 4, "minimumPopulation": 5, "currency": "INR",
+        "orgUnitExternalId": "ou-quality", "periodExternalId": "prd-fy2027-q2",
+        "description": "DELIBERATE TEST CASE: coveredHeadcount (4) is BELOW minimumPopulation (5), so this aggregate must be SUPPRESSED rather than shown - with a 4-person team and a known headcount, a reader could approximate an individual salary. Step 3's read path has to honour this; if it renders, the k-anonymity rule is not wired up."
+      },
+      { "externalId": "pay-delivery-q1", "name": "Delivery payroll, FY2027 Q1", "totalCost": 6430000, "coveredHeadcount": 13, "minimumPopulation": 5, "currency": "INR", "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "pay-japan-q1",    "name": "Japan payroll, FY2027 Q1",    "totalCost": 3210000, "coveredHeadcount": 6,  "minimumPopulation": 5, "currency": "INR", "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q1" }
+    ],
+
+    "requisitions": [
+      { "externalId": "req-del-senior-2",    "name": "Senior Engineer, TrackZ",       "requisitionStatus": "OPEN",    "openedDate": "2026-05-12", "positionExternalId": "pos-del-senior-2",   "requiresSkillExternalIds": ["skl-java", "skl-mobile"] },
+      { "externalId": "req-jp-consultant-2", "name": "Bilingual Consultant, SAP",     "requisitionStatus": "OPEN",    "openedDate": "2026-04-02", "positionExternalId": "pos-jp-consultant-2","requiresSkillExternalIds": ["skl-japanese", "skl-sap"], "description": "Open 4+ months - the bilingual SAP skill is the hardest to hire, which is what makes rsk-keyperson-jp material." },
+      { "externalId": "req-qa-engineer-2",   "name": "QA Engineer, Security Testing", "requisitionStatus": "ON_HOLD", "openedDate": "2026-06-20", "positionExternalId": "pos-qa-engineer-2",  "requiresSkillExternalIds": ["skl-security"] }
+    ]
+  },
+
+  "commercial": {
+    "products": [
+      { "externalId": "prod-claimz",   "name": "ClaimZ",   "description": "Packaged insurance claims processing product." },
+      { "externalId": "prod-trackz",   "name": "TrackZ",   "description": "Tracking and logistics product." },
+      { "externalId": "prod-recruitz", "name": "RecruitZ", "description": "Recruitment and HR tooling product." }
+    ],
+
+    "serviceLines": [
+      { "externalId": "sl-offshore",    "name": "Offshore Development" },
+      { "externalId": "sl-consulting",  "name": "Consulting & Outsourcing" },
+      { "externalId": "sl-maintenance", "name": "Maintenance Services" },
+      { "externalId": "sl-testing",     "name": "Testing Services" }
+    ],
+
+    "opportunities": [
+      { "externalId": "opp-gid-expand",    "name": "GID platform expansion",          "stage": "NEGOTIATE", "probability": 0.70, "dealValue": 8400000, "weightedValue": 5880000, "expectedCloseDate": "2026-10-31", "currency": "INR", "clientExternalId": "cl-gid",    "serviceLineExternalId": "sl-offshore",    "orgUnitExternalId": "ou-delivery" },
+      { "externalId": "opp-claimz-jp",     "name": "ClaimZ licence, Japan insurer",   "stage": "PROPOSE",   "probability": 0.40, "dealValue": 12000000,"weightedValue": 4800000, "expectedCloseDate": "2027-01-31", "currency": "INR", "serviceLineExternalId": "sl-consulting", "orgUnitExternalId": "ou-japan-ops" },
+      { "externalId": "opp-sap-rollout",   "name": "SAP rollout support",             "stage": "QUALIFY",   "probability": 0.20, "dealValue": 6200000, "weightedValue": 1240000, "expectedCloseDate": "2027-03-31", "currency": "INR", "serviceLineExternalId": "sl-consulting", "orgUnitExternalId": "ou-japan-ops" },
+      { "externalId": "opp-vojvoj-phase2", "name": "VojVoj app phase 2",              "stage": "WON",       "probability": 1.00, "dealValue": 3100000, "weightedValue": 3100000, "expectedCloseDate": "2026-06-15", "currency": "INR", "clientExternalId": "cl-vojvoj", "serviceLineExternalId": "sl-offshore",   "orgUnitExternalId": "ou-delivery", "wonAsContractExternalId": "con-vojvoj-p2" },
+      { "externalId": "opp-testing-retain","name": "Managed testing retainer",         "stage": "LOST",      "probability": 0.00, "dealValue": 2400000, "weightedValue": 0,       "expectedCloseDate": "2026-07-31", "currency": "INR", "serviceLineExternalId": "sl-testing",   "orgUnitExternalId": "ou-quality" }
+    ],
+
+    "contracts": [
+      { "externalId": "con-gid-web",    "name": "GID web development agreement", "contractValue": 34200000, "annualRecurringRevenue": 34200000, "contractStatus": "ACTIVE",  "signedDate": "2021-07-01", "expiryDate": "2027-06-30", "currency": "INR", "clientExternalId": "cl-gid",    "engagementExternalId": "eng-gid-web" },
+      { "externalId": "con-vojvoj-p1",  "name": "VojVoj social app, phase 1",    "contractValue": 5800000,  "contractStatus": "EXPIRED", "signedDate": "2021-02-01", "expiryDate": "2026-05-31", "currency": "INR", "clientExternalId": "cl-vojvoj", "engagementExternalId": "eng-vojvoj-app" },
+      { "externalId": "con-vojvoj-p2",  "name": "VojVoj social app, phase 2",    "contractValue": 3100000,  "contractStatus": "ACTIVE",  "signedDate": "2026-06-15", "expiryDate": "2027-03-31", "currency": "INR", "clientExternalId": "cl-vojvoj", "engagementExternalId": "eng-vojvoj-app" }
+    ],
+
+    "pipelineSnapshots": [
+      { "externalId": "pl-japan-q2",    "name": "Japan pipeline, FY2027 Q2",    "pipelineValue": 18200000, "opportunityCount": 2, "winRate": 0.33, "currency": "INR", "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q2" },
+      { "externalId": "pl-delivery-q2", "name": "Delivery pipeline, FY2027 Q2", "pipelineValue": 8400000,  "opportunityCount": 1, "winRate": 0.67, "currency": "INR", "orgUnitExternalId": "ou-delivery",  "periodExternalId": "prd-fy2027-q2" },
+      { "externalId": "pl-japan-q1",    "name": "Japan pipeline, FY2027 Q1",    "pipelineValue": 14600000, "opportunityCount": 2, "winRate": 0.30, "currency": "INR", "orgUnitExternalId": "ou-japan-ops", "periodExternalId": "prd-fy2027-q1" }
+    ],
+
+    "satisfactionScores": [
+      { "externalId": "csat-gid-q2",    "name": "GID CSAT, FY2027 Q2",    "scoreType": "CSAT", "scoreValue": 4.2, "responseCount": 6, "clientExternalId": "cl-gid",    "periodExternalId": "prd-fy2027-q2" },
+      { "externalId": "csat-vojvoj-q1", "name": "VojVoj CSAT, FY2027 Q1", "scoreType": "CSAT", "scoreValue": 4.6, "responseCount": 4, "clientExternalId": "cl-vojvoj", "periodExternalId": "prd-fy2027-q1" },
+      { "externalId": "nps-all-q2",     "name": "Overall NPS, FY2027 Q2", "scoreType": "NPS",  "scoreValue": 42,  "responseCount": 11, "periodExternalId": "prd-fy2027-q2" }
+    ]
+  },
+
+  "strategy": {
+    "objectives": [
+      { "externalId": "obj-fy2027-growth",    "name": "Grow services revenue 25% in FY2027",         "objectiveStatus": "ACTIVE", "horizon": "ANNUAL",     "ownerExecutiveExternalId": "exec-dir-salesops", "periodExternalId": "prd-fy2027" },
+      { "externalId": "obj-fy2027-product",   "name": "Make product revenue a third of the mix",     "objectiveStatus": "ACTIVE", "horizon": "THREE_YEAR", "ownerExecutiveExternalId": "exec-dir-prodtech", "periodExternalId": "prd-fy2027" },
+      { "externalId": "obj-fy2027-reliability","name": "Reach 99.5% platform availability",          "objectiveStatus": "ACTIVE", "horizon": "ANNUAL",     "ownerExecutiveExternalId": "exec-dir-projtech", "periodExternalId": "prd-fy2027" },
+      { "externalId": "obj-fy2027-bilingual", "name": "Double bilingual delivery capacity",          "objectiveStatus": "ACTIVE", "horizon": "ANNUAL",     "ownerExecutiveExternalId": "exec-dir-salesops", "periodExternalId": "prd-fy2027", "parentObjectiveExternalId": "obj-fy2027-growth" },
+      { "externalId": "obj-fy2027-cash",      "name": "Hold net cash positive every month",          "objectiveStatus": "ACTIVE", "horizon": "ANNUAL",     "ownerExecutiveExternalId": "exec-advisor",      "periodExternalId": "prd-fy2027" }
+    ],
+
+    "keyResults": [
+      { "externalId": "kr-cash-net",       "name": "Net cash flow above 1.5M INR every month", "baselineValue": 1200000, "currentValue": -380000, "targetValue": 1500000, "objectiveExternalId": "obj-fy2027-cash",        "metricExternalId": "met-net-cashflow" },
+      { "externalId": "kr-uptime",         "name": "Uptime at or above 99.5%",                 "baselineValue": 98.9,    "currentValue": 99.62,   "targetValue": 99.5,    "objectiveExternalId": "obj-fy2027-reliability", "metricExternalId": "met-uptime" },
+      { "externalId": "kr-sla",            "name": "SLA compliance at or above 98%",           "baselineValue": 94.0,    "currentValue": 96.4,    "targetValue": 98.0,    "objectiveExternalId": "obj-fy2027-reliability", "metricExternalId": "met-sla-health" },
+      { "externalId": "kr-headcount",      "name": "Grow to 28 people",                        "baselineValue": 21,      "currentValue": 23,      "targetValue": 28,      "objectiveExternalId": "obj-fy2027-bilingual",   "metricExternalId": "met-headcount" },
+      { "externalId": "kr-budget-variance","name": "Keep budget variance under 1M INR",         "baselineValue": 2400000, "currentValue": 1850000, "targetValue": 1000000, "objectiveExternalId": "obj-fy2027-cash",        "metricExternalId": "met-budget-variance" },
+      { "externalId": "kr-degraded",       "name": "No more than 3 degraded systems",          "baselineValue": 11,      "currentValue": 7,       "targetValue": 3,       "objectiveExternalId": "obj-fy2027-reliability", "metricExternalId": "met-system-health" }
+    ],
+
+    "initiatives": [
+      { "externalId": "ini-claimz-v3",     "name": "ClaimZ v3 platform rebuild",       "ragStatus": "RED",   "percentComplete": 34.0, "plannedStartDate": "2026-04-01", "plannedEndDate": "2027-01-31", "contributesToExternalId": "obj-fy2027-product",     "ownerExecutiveExternalId": "exec-dir-prodtech", "orgUnitExternalId": "ou-delivery" },
+      { "externalId": "ini-observability", "name": "Platform observability programme", "ragStatus": "RED",   "percentComplete": 21.0, "plannedStartDate": "2026-05-01", "plannedEndDate": "2026-12-31", "contributesToExternalId": "obj-fy2027-reliability", "ownerExecutiveExternalId": "exec-dir-projtech", "orgUnitExternalId": "ou-quality" },
+      { "externalId": "ini-bilingual-hire","name": "Bilingual hiring push",            "ragStatus": "RED",   "percentComplete": 40.0, "plannedStartDate": "2026-04-01", "plannedEndDate": "2027-03-31", "contributesToExternalId": "obj-fy2027-bilingual",   "ownerExecutiveExternalId": "exec-dir-salesops", "orgUnitExternalId": "ou-japan-ops", "description": "Red because two bilingual requisitions have been open for months - the three RED initiatives here are what obs-projred-2026-08 (value 3) counts." },
+      { "externalId": "ini-trackz-mobile", "name": "TrackZ mobile refresh",            "ragStatus": "AMBER", "percentComplete": 58.0, "plannedStartDate": "2026-04-15", "plannedEndDate": "2026-11-30", "contributesToExternalId": "obj-fy2027-product",     "ownerExecutiveExternalId": "exec-dir-prodtech", "orgUnitExternalId": "ou-delivery" },
+      { "externalId": "ini-test-automation","name": "Test automation rollout",          "ragStatus": "GREEN", "percentComplete": 72.0, "plannedStartDate": "2026-04-01", "plannedEndDate": "2026-10-31", "contributesToExternalId": "obj-fy2027-reliability", "ownerExecutiveExternalId": "exec-dir-projtech", "orgUnitExternalId": "ou-quality" },
+      { "externalId": "ini-gid-expansion", "name": "GID account expansion",            "ragStatus": "GREEN", "percentComplete": 45.0, "plannedStartDate": "2026-06-01", "plannedEndDate": "2027-02-28", "contributesToExternalId": "obj-fy2027-growth",      "ownerExecutiveExternalId": "exec-dir-salesops", "orgUnitExternalId": "ou-delivery" }
+    ],
+
+    "milestones": [
+      { "externalId": "ms-claimz-design",   "name": "ClaimZ v3 architecture sign-off", "milestoneStatus": "MET",     "plannedEndDate": "2026-06-30", "actualEndDate": "2026-07-14", "contributesToExternalId": "ini-claimz-v3" },
+      { "externalId": "ms-claimz-alpha",    "name": "ClaimZ v3 alpha release",         "milestoneStatus": "SLIPPED", "plannedEndDate": "2026-08-31",                              "contributesToExternalId": "ini-claimz-v3", "description": "Slipped. Because str:contributesTo is transitive, this milestone is inferred to contribute to obj-fy2027-product - so the CEO can see which objective a slipping milestone endangers without any application-side traversal." },
+      { "externalId": "ms-obs-tracing",     "name": "Distributed tracing live",        "milestoneStatus": "PENDING", "plannedEndDate": "2026-09-30",                              "contributesToExternalId": "ini-observability" },
+      { "externalId": "ms-hire-consultant", "name": "Bilingual consultant onboarded",  "milestoneStatus": "MISSED",  "plannedEndDate": "2026-07-31",                              "contributesToExternalId": "ini-bilingual-hire" },
+      { "externalId": "ms-trackz-beta",     "name": "TrackZ mobile beta",              "milestoneStatus": "PENDING", "plannedEndDate": "2026-09-15",                              "contributesToExternalId": "ini-trackz-mobile" },
+      { "externalId": "ms-automation-50",   "name": "50% regression suite automated",  "milestoneStatus": "MET",     "plannedEndDate": "2026-07-31", "actualEndDate": "2026-07-28", "contributesToExternalId": "ini-test-automation" }
+    ]
+  },
+
+  "risk": {
+    "policies": [
+      { "externalId": "pol-infosec",   "name": "Information Security Policy" },
+      { "externalId": "pol-access",    "name": "Access Control Policy",       "description": "Least privilege, quarterly access review, MFA for all admin access." },
+      { "externalId": "pol-datalocal", "name": "Data Residency Policy",       "description": "Japanese customer data stays in the Japan region." }
+    ],
+
+    "obligations": [
+      { "externalId": "obl-dpdp",     "name": "India DPDP Act obligations",        "obligationSource": "Digital Personal Data Protection Act, 2023 (India)", "complianceStatus": "PARTIAL" },
+      { "externalId": "obl-appi",     "name": "Japan APPI obligations",           "obligationSource": "Act on the Protection of Personal Information (Japan)", "complianceStatus": "COMPLIANT" },
+      { "externalId": "obl-iso27001", "name": "ISO/IEC 27001 control objectives", "obligationSource": "ISO/IEC 27001:2022",                                  "complianceStatus": "PARTIAL" },
+      { "externalId": "obl-client-sec","name": "Client security addendum",        "obligationSource": "GID master services agreement, security schedule",     "complianceStatus": "COMPLIANT" }
+    ],
+
+    "controls": [
+      { "externalId": "ctl-mfa",           "name": "MFA on all administrative access", "controlType": "PREVENTIVE", "controlEffectiveness": "EFFECTIVE",   "lastTestedDate": "2026-06-30", "implementsPolicyExternalId": "pol-access",    "satisfiesObligationExternalIds": ["obl-iso27001", "obl-client-sec"] },
+      { "externalId": "ctl-access-review", "name": "Quarterly access review",          "controlType": "DETECTIVE",  "controlEffectiveness": "PARTIAL",     "lastTestedDate": "2026-04-15", "implementsPolicyExternalId": "pol-access",    "satisfiesObligationExternalIds": ["obl-iso27001"], "description": "Partial: the Q2 review was not completed - the gap fnd-access-review records." },
+      { "externalId": "ctl-backup",        "name": "Daily encrypted backups",          "controlType": "CORRECTIVE", "controlEffectiveness": "EFFECTIVE",   "lastTestedDate": "2026-07-20", "implementsPolicyExternalId": "pol-infosec",   "satisfiesObligationExternalIds": ["obl-iso27001"] },
+      { "externalId": "ctl-vuln-scan",     "name": "Monthly vulnerability scanning",   "controlType": "DETECTIVE",  "controlEffectiveness": "PARTIAL",     "lastTestedDate": "2026-08-01", "implementsPolicyExternalId": "pol-infosec",   "satisfiesObligationExternalIds": ["obl-iso27001"] },
+      { "externalId": "ctl-region-pin",    "name": "Japan region data pinning",        "controlType": "PREVENTIVE", "controlEffectiveness": "EFFECTIVE",   "lastTestedDate": "2026-05-30", "implementsPolicyExternalId": "pol-datalocal", "satisfiesObligationExternalIds": ["obl-appi", "obl-dpdp"] },
+      { "externalId": "ctl-dpa",           "name": "Data processing agreements",       "controlType": "PREVENTIVE", "controlEffectiveness": "NOT_TESTED",  "implementsPolicyExternalId": "pol-datalocal", "satisfiesObligationExternalIds": ["obl-dpdp"] }
+    ],
+
+    "risks": [
+      { "externalId": "rsk-keyperson-jp",   "name": "Bilingual key-person dependency",   "riskCategory": "PEOPLE",     "likelihood": 4, "impact": 5, "inherentSeverity": 20, "residualSeverity": 16, "exposureAmount": 12000000, "currency": "INR", "riskStatus": "MITIGATING", "identifiedDate": "2026-04-10", "mitigatedByExternalIds": ["ctl-access-review"], "threatensObjectiveExternalId": "obj-fy2027-bilingual", "ownerExecutiveExternalId": "exec-dir-salesops", "description": "Japan delivery depends on a very small bilingual pool; two requisitions have been open for months." },
+      { "externalId": "rsk-client-concentration", "name": "Client concentration",         "riskCategory": "STRATEGIC",  "likelihood": 3, "impact": 5, "inherentSeverity": 15, "residualSeverity": 15, "exposureAmount": 34200000, "currency": "INR", "riskStatus": "OPEN",       "identifiedDate": "2026-04-10", "threatensObjectiveExternalId": "obj-fy2027-growth",   "ownerExecutiveExternalId": "exec-dir-salesops", "description": "A single active contract represents the majority of recurring revenue." },
+      { "externalId": "rsk-cloud-outage",   "name": "Single-region cloud dependency",    "riskCategory": "TECHNOLOGY", "likelihood": 2, "impact": 5, "inherentSeverity": 10, "residualSeverity": 6,  "exposureAmount": 4500000,  "currency": "INR", "riskStatus": "MITIGATING", "identifiedDate": "2026-05-02", "mitigatedByExternalIds": ["ctl-backup"], "threatensObjectiveExternalId": "obj-fy2027-reliability", "ownerExecutiveExternalId": "exec-dir-projtech" },
+      { "externalId": "rsk-receivables",    "name": "Receivables slippage",              "riskCategory": "FINANCIAL",  "likelihood": 3, "impact": 3, "inherentSeverity": 9,  "residualSeverity": 9,  "exposureAmount": 2850000,  "currency": "INR", "riskStatus": "OPEN",       "identifiedDate": "2026-08-05", "threatensObjectiveExternalId": "obj-fy2027-cash",     "ownerExecutiveExternalId": "exec-advisor", "description": "One overdue invoice already turned August net cash negative." },
+      { "externalId": "rsk-compliance-gap", "name": "DPDP readiness gap",                "riskCategory": "REGULATORY", "likelihood": 3, "impact": 4, "inherentSeverity": 12, "residualSeverity": 8,  "exposureAmount": 3000000,  "currency": "INR", "riskStatus": "MITIGATING", "identifiedDate": "2026-04-25", "mitigatedByExternalIds": ["ctl-region-pin", "ctl-dpa"], "ownerExecutiveExternalId": "exec-advisor" },
+      { "externalId": "rsk-unpatched",      "name": "Unpatched production components",   "riskCategory": "TECHNOLOGY", "likelihood": 4, "impact": 4, "inherentSeverity": 16, "residualSeverity": 12, "exposureAmount": 2000000,  "currency": "INR", "riskStatus": "MITIGATING", "identifiedDate": "2026-07-11", "mitigatedByExternalIds": ["ctl-vuln-scan"], "threatensObjectiveExternalId": "obj-fy2027-reliability", "ownerExecutiveExternalId": "exec-dir-projtech" }
+    ],
+
+    "audits": [
+      { "externalId": "aud-iso-2026",  "name": "ISO 27001 internal audit, FY2027 Q1", "auditType": "INTERNAL", "complianceStatus": "PARTIAL" },
+      { "externalId": "aud-client-gid","name": "GID client security review 2026",     "auditType": "CLIENT",   "complianceStatus": "COMPLIANT" }
+    ],
+
+    "findings": [
+      { "externalId": "fnd-access-review", "name": "Q2 access review not completed",        "findingDetail": "The quarterly access review required by the Access Control Policy was not performed for FY2027 Q2. Recorded against the control and the process, not against any individual.", "findingSeverity": "MEDIUM", "findingStatus": "OPEN",         "remediationDueDate": "2026-09-30", "auditExternalId": "aud-iso-2026", "controlExternalId": "ctl-access-review" },
+      { "externalId": "fnd-vuln-backlog",  "name": "Vulnerability remediation backlog",     "findingDetail": "Four high or critical findings from the monthly scan remain unremediated beyond the policy window.", "findingSeverity": "HIGH",   "findingStatus": "REMEDIATING", "remediationDueDate": "2026-09-15", "auditExternalId": "aud-iso-2026", "controlExternalId": "ctl-vuln-scan" },
+      { "externalId": "fnd-dpa-missing",   "name": "Data processing agreements untested",    "findingDetail": "DPAs are in place with primary processors but the control has never been tested end to end.", "findingSeverity": "LOW",    "findingStatus": "OPEN",         "remediationDueDate": "2026-11-30", "auditExternalId": "aud-iso-2026", "controlExternalId": "ctl-dpa" }
+    ]
+  },
+
+  "itops": {
+    "businessServices": [
+      { "externalId": "svc-claimz-hosting", "name": "ClaimZ hosted service",      "criticality": "TIER_1", "healthStatus": "DEGRADED", "orgUnitExternalId": "ou-delivery",  "operatedByOrgUnitExternalId": "ou-delivery", "description": "Customer-facing. Degraded, which is why the CEO's view can say 'a Tier 1 customer service is impaired' rather than 'seven systems are amber'." },
+      { "externalId": "svc-dev-platform",   "name": "Development platform",       "criticality": "TIER_2", "healthStatus": "HEALTHY",  "orgUnitExternalId": "ou-delivery",  "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "svc-test-lab",       "name": "Test automation lab",        "criticality": "TIER_3", "healthStatus": "HEALTHY",  "orgUnitExternalId": "ou-quality",   "operatedByOrgUnitExternalId": "ou-quality" },
+      { "externalId": "svc-corporate-it",   "name": "Corporate IT & collaboration","criticality": "TIER_2", "healthStatus": "HEALTHY", "orgUnitExternalId": "ou-japan-ops", "operatedByOrgUnitExternalId": "ou-delivery" }
+    ],
+
+    "assets": [
+      { "externalId": "ast-cloud-prod-in", "name": "Production cluster, India region", "assetType": "CLOUD_RESOURCE", "criticality": "TIER_1", "annualCost": 2400000, "environment": "PROD",    "currency": "INR", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "ast-cloud-prod-jp", "name": "Production cluster, Japan region", "assetType": "CLOUD_RESOURCE", "criticality": "TIER_1", "annualCost": 1560000, "environment": "PROD",    "currency": "INR", "operatedByOrgUnitExternalId": "ou-delivery", "description": "Exists to satisfy the Japan data-residency policy - ctl-region-pin." },
+      { "externalId": "ast-cloud-staging",  "name": "Staging environment",             "assetType": "CLOUD_RESOURCE", "criticality": "TIER_3", "annualCost": 480000,  "environment": "STAGING", "currency": "INR", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "ast-licences-office","name": "Productivity suite licences",     "assetType": "LICENCE",        "criticality": "TIER_3", "annualCost": 920000,  "endOfLifeDate": "2027-03-31", "currency": "INR", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "ast-test-runners",  "name": "Test runner fleet",               "assetType": "CLOUD_RESOURCE", "criticality": "TIER_3", "annualCost": 360000,  "environment": "DEV",     "currency": "INR", "operatedByOrgUnitExternalId": "ou-quality" },
+      { "externalId": "ast-legacy-db",     "name": "Legacy ClaimZ v2 database",       "assetType": "SERVER",         "criticality": "TIER_2", "annualCost": 540000,  "environment": "PROD",    "endOfLifeDate": "2026-12-31", "currency": "INR", "operatedByOrgUnitExternalId": "ou-delivery", "description": "End of life inside the fiscal year - the concrete reason ini-claimz-v3 being RED matters." }
+    ],
+
+    "slas": [
+      { "externalId": "sla-claimz",   "name": "ClaimZ availability SLA",   "slaTargetPercent": 99.5, "responseTimeMinutes": 30,  "businessServiceExternalId": "svc-claimz-hosting" },
+      { "externalId": "sla-devplat",  "name": "Development platform SLA",  "slaTargetPercent": 99.0, "responseTimeMinutes": 120, "businessServiceExternalId": "svc-dev-platform" },
+      { "externalId": "sla-corp-it",  "name": "Corporate IT support SLA",  "slaTargetPercent": 98.0, "responseTimeMinutes": 240, "businessServiceExternalId": "svc-corporate-it" }
+    ],
+
+    "releases": [
+      { "externalId": "rel-claimz-2-9",  "name": "ClaimZ 2.9 maintenance release", "releaseVersion": "2.9.0", "scheduledDate": "2026-07-18" },
+      { "externalId": "rel-claimz-3-a1", "name": "ClaimZ 3.0 alpha 1",             "releaseVersion": "3.0.0-a1", "scheduledDate": "2026-09-12", "description": "Slipped from August - see ms-claimz-alpha." },
+      { "externalId": "rel-trackz-1-4",  "name": "TrackZ 1.4 mobile refresh",      "releaseVersion": "1.4.0", "scheduledDate": "2026-09-30" }
+    ],
+
+    "changeRequests": [
+      { "externalId": "chg-db-upgrade",   "name": "Upgrade legacy ClaimZ v2 database", "changeStatus": "REQUESTED",   "changeRisk": "HIGH",      "scheduledDate": "2026-09-20", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "chg-tls-rotate",   "name": "Rotate production TLS certificates","changeStatus": "SCHEDULED",  "changeRisk": "LOW",       "scheduledDate": "2026-08-28", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "chg-claimz-2-9",   "name": "Deploy ClaimZ 2.9",                 "changeStatus": "IMPLEMENTED", "changeRisk": "MEDIUM",    "scheduledDate": "2026-07-18", "releaseExternalId": "rel-claimz-2-9", "operatedByOrgUnitExternalId": "ou-delivery" },
+      { "externalId": "chg-jp-region",    "name": "Enable Japan region failover",      "changeStatus": "ROLLED_BACK", "changeRisk": "HIGH",      "scheduledDate": "2026-08-08", "operatedByOrgUnitExternalId": "ou-delivery", "description": "Rolled back - a plausible root cause for the ClaimZ service being DEGRADED." },
+      { "externalId": "chg-runner-scale", "name": "Scale test runner fleet",           "changeStatus": "APPROVED",    "changeRisk": "LOW",       "scheduledDate": "2026-09-01", "operatedByOrgUnitExternalId": "ou-quality" }
+    ],
+
+    "vulnerabilities": [
+      { "externalId": "vul-sample-0001", "name": "Deserialisation flaw in application framework", "cveId": "CVE-SAMPLE-0001", "severity": "CRITICAL", "remediationStatus": "PATCHING",      "assetExternalId": "ast-cloud-prod-in", "description": "SYNTHETIC identifier - not a real advisory. cveId uses a CVE-SAMPLE- prefix precisely so sample data can never be mistaken for a genuine CVE." },
+      { "externalId": "vul-sample-0002", "name": "Privilege escalation in container runtime",     "cveId": "CVE-SAMPLE-0002", "severity": "HIGH",     "remediationStatus": "OPEN",          "assetExternalId": "ast-cloud-prod-jp", "description": "SYNTHETIC identifier - not a real advisory." },
+      { "externalId": "vul-sample-0003", "name": "Outdated TLS ciphers on legacy database host",   "cveId": "CVE-SAMPLE-0003", "severity": "HIGH",     "remediationStatus": "ACCEPTED_RISK", "assetExternalId": "ast-legacy-db",     "description": "SYNTHETIC identifier - not a real advisory. Accepted because the host retires at end of life 2026-12-31." },
+      { "externalId": "vul-sample-0004", "name": "Dependency confusion in build pipeline",         "cveId": "CVE-SAMPLE-0004", "severity": "MEDIUM",   "remediationStatus": "PATCHED",       "assetExternalId": "ast-test-runners",  "description": "SYNTHETIC identifier - not a real advisory." }
+    ]
+  }
+}

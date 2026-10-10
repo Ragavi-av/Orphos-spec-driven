@@ -1,0 +1,29 @@
+{
+  "projectKey": "",
+  "taskIssueTypes": ["Task", "Sub-task"],
+  "approvedStatuses": ["Approved"],
+
+  "authorizedApprovers": {
+    "accountIds": [],
+    "groups": ["task-approvers"]
+  },
+
+  "forbidSelfApproval": true,
+  "rejectIfEditedAfterApproval": true,
+  "protectedFields": ["summary", "description"],
+
+  "approverField": "",
+  "approverFieldMustMatchTransition": true,
+
+  "requireApprovedStory": true,
+  "storyApprovedStatuses": ["Approved", "In Progress"],
+
+  "testCaseIssueType": "Test",
+  "issueLinkType": "Relates",
+
+  "similarityThreshold": 0.85,
+  "defaultLabels": ["test-case-agent"],
+  "commentOnTask": true,
+  "maxTestCasesPerRun": 40,
+  "scanLimit": 50
+}

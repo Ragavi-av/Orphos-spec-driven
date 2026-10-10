@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.orphos.eip</groupId>
+        <artifactId>eip-mvp-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>doc-ingest-service</artifactId>
+    <name>doc-ingest-service</name>
+    <description>Document Ingestion Service — structure-aware parsing, embedding, and Qdrant vector storage</description>
+
+    <dependencies>
+        <!-- Orphos shared libs -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-secrets</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-common</artifactId>
+        </dependency>
+        <!-- Shared ArcadeDB REST transport — DocArcadeClient is now a thin facade
+             over ArcadeDbTemplate that adds only the OpenBao password fallback. -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-core-arcadedb</artifactId>
+        </dependency>
+        <!-- Provides InternalServiceTokenAuthenticationFilter, wired into this service's custom
+             SecurityConfig so internal callers (e.g. eip-mcp-ingest) can reach /api/doc-ingest/admin/**
+             with the shared token. The shared DEFAULT filter chain still backs off
+             (@ConditionalOnMissingBean) because we declare our own SecurityFilterChain. -->
+        <dependency>
+            <groupId>io.orphos.eip</groupId>
+            <artifactId>eip-core-security</artifactId>
+        </dependency>
+
+        <!-- Web + Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Async support -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- AWS SDK v2 — S3 source connector (folder-pull ingestion). Also drives
+             any S3-compatible store (MinIO, Ceph) via endpointOverride + path-style
+             access. Pinned here; not yet in the offline repo, needs Maven Central. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.28.16</version>
+        </dependency>
+
+        <!-- Apache Commons Net — FTP folder connector (browse + pull ingestion). Cached in the offline repo. -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.11.1</version>
+        </dependency>
+
+        <!-- jsch (maintained fork) — SFTP folder connector. NOT yet in the offline repo: needs one
+             online build to fetch it into .m2 (package remains com.jcraft.jsch, drop-in API). -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.21</version>
+        </dependency>
+
+        <!-- LangChain4j: Ollama embedding + Qdrant store (core pulled transitively) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-qdrant</artifactId>
+        </dependency>
+
+        <!-- Docling official Java client → talks to the docling-serve sidecar over
+             REST (no Python in this service). Used by DoclingParser for layout-aware
+             parsing + Japanese OCR; Tika remains the fallback. Requires Maven Central
+             access at build time (not in the offline repo yet). -->
+        <dependency>
+            <groupId>ai.docling</groupId>
+            <artifactId>docling-serve-client</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+
+        <!-- Lucene Kuromoji: morphological tokenizer used by JapaneseTextTokenizer
+             for bilingual (JA+EN) keyword/BM25 matching in hybrid search. Pure Java
+             (no native MeCab). Pulls lucene-core + lucene-analysis-common transitively.
+             Requires Maven Central access at build time (not in the offline repo yet). -->
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analysis-kuromoji</artifactId>
+            <version>9.11.1</version>
+        </dependency>
+
+        <!--
+          Apache Tika: AutoDetectParser supports PDF, DOCX, XLSX, PPTX,
+          HTML, CSV, images. PDFBox is pulled in transitively via
+          tika-parsers-standard-package, so PdfTableExtractor works
+          without an extra explicit dependency.
+        -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+        <!-- jsoup — converts Tika XHTML output to the block model -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+
+        <!-- commons-compress: Tika 2.9 requires >= 1.24 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.26.2</version>
+        </dependency>
+
+        <!-- OpenAPI 3 / Swagger UI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Metrics -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Log4j2, replacing the Logback default excluded above. log4j2.xml owns the
+             appenders and the JSON format; per-package levels stay in application.yml's
+             logging.level.*, which Spring Boot applies to Log4j2 just as it did to Logback. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+        </dependency>
+        <!-- JsonTemplateLayout, for the JSON log output defined in log4j2-json-layout.json. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-layout-template-json</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

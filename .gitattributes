@@ -1,0 +1,10 @@
+# Shell scripts run inside Linux containers — CRLF endings break them
+# ("set: illegal option -"). Pin to LF regardless of core.autocrlf.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+
+# Batch files need CRLF - cmd.exe mis-parses multi-line blocks and labels
+# in LF-only .bat files.
+*.bat text eol=crlf
+*.cmd text eol=crlf

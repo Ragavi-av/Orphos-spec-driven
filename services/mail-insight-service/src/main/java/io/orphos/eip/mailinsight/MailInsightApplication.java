@@ -1,0 +1,44 @@
+package io.orphos.eip.mailinsight;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+/**
+ * Mail Insight Service.
+ *
+ * Scans configured Microsoft 365 mailboxes (mail + calendar) over a rolling
+ * window, infers action items and notifications, and persists them to ArcadeDB
+ * so the dashboard's "Tasks for Action" and "Notifications" tabs can read them.
+ */
+@SpringBootApplication
+@EnableAsync
+@EnableScheduling
+public class MailInsightApplication {
+    public static void main(String[] args) {
+        // Read by log4j2-json-layout.json's "hostIpAddress" field. Must be set before Spring
+        // (and therefore Log4j2) starts, since it's resolved once at config load and reused for
+        // every log line for the life of the process. POD_IP, if the orchestrator injects it
+        // (e.g. Kubernetes' downward API), takes priority over Java's own NIC lookup, which can
+        // report an internal container bridge address rather than the one other services reach
+        // this instance on.
+        System.setProperty("HOST_IP", resolveHostIp());
+        SpringApplication.run(MailInsightApplication.class, args);
+    }
+
+    private static String resolveHostIp() {
+        String podIp = System.getenv("POD_IP");
+        if (podIp != null && !podIp.isBlank()) {
+            return podIp;
+        }
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            return "unknown";
+        }
+    }
+}

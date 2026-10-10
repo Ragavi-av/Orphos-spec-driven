@@ -1,0 +1,152 @@
+<?xml version="1.0"?>
+<!--
+  EIP Core Ontology — the small, fixed schema okg-ingest-service's connectors
+  (Jira today) map external entities into. Loaded once at startup into a
+  shared Jena OntModel; per-tenant fact sets are added to a fresh copy of
+  this base model each reasoning cycle (see OntologyService/FactLoader).
+
+  What is genuinely OWL-inferred here: eip:blocks is declared a
+  TransitiveProperty, so if A blocks B and B blocks C, Jena's OWL_MEM_RULE_INF
+  reasoner infers "A blocks C" without ReasoningService computing it by hand.
+  eip:blockedBy is its declared inverse, so the same closure is queryable in
+  either direction.
+
+  What is NOT expressed here (deliberately — OWL/RDFS has no built-ins for
+  date comparison or counting occurrences): "is this issue overdue", "is this
+  person overloaded". Those are computed in plain Java by ReasoningService
+  after the OWL inference pass and asserted as additional simple triples
+  using the eip:OverdueIssue / eip:OverloadedPerson classes declared below —
+  see ReasoningService's Javadoc for exactly which computation backs each.
+-->
+<rdf:RDF xmlns="http://orphos.eip/ontology/core#"
+     xml:base="http://orphos.eip/ontology/core"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:eip="http://orphos.eip/ontology/core#">
+
+    <owl:Ontology rdf:about="http://orphos.eip/ontology/core"/>
+
+    <!-- ============================ Classes ============================ -->
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Project">
+        <rdfs:label>Project</rdfs:label>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Issue">
+        <rdfs:label>Issue</rdfs:label>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#Person">
+        <rdfs:label>Person</rdfs:label>
+    </owl:Class>
+
+    <!-- Computed analytical classes — asserted by ReasoningService in Java,
+         not derivable by OWL reasoning alone (see file header). Declared here
+         so they're documented, queryable, and consistent members of the same
+         ontology namespace as everything else. -->
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#OverdueIssue">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:label>Overdue Issue</rdfs:label>
+        <rdfs:comment>Computed: dueDate is in the past and statusCategory != "Done".</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#BlockedIssue">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:label>Blocked Issue</rdfs:label>
+        <rdfs:comment>Computed: has at least one transitive blocker (via the OWL-inferred
+            transitive closure of eip:blockedBy) whose statusCategory != "Done".</rdfs:comment>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://orphos.eip/ontology/core#OverloadedPerson">
+        <rdfs:subClassOf rdf:resource="http://orphos.eip/ontology/core#Person"/>
+        <rdfs:label>Overloaded Person</rdfs:label>
+        <rdfs:comment>Computed: assigned more than the configured threshold of open issues.</rdfs:comment>
+    </owl:Class>
+
+    <!-- ======================= Object Properties ======================= -->
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#assignedTo">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Person"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#reportedBy">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Person"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#belongsToProject">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Project"/>
+    </owl:ObjectProperty>
+
+    <!-- Genuinely OWL-reasoned: transitive + inverse. If Issue A blocks B and
+         B blocks C, the reasoner infers A blocks C and (via the inverse) that
+         C is blockedBy A, B, without any Java code walking the chain. -->
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#blocks">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#blockedBy">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+        <owl:inverseOf rdf:resource="http://orphos.eip/ontology/core#blocks"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#relatesTo">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#SymmetricProperty"/>
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://orphos.eip/ontology/core#duplicates">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+    </owl:ObjectProperty>
+
+    <!-- ========================= Data Properties ======================== -->
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#externalId">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#displayName">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#summary">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#statusName">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#statusCategory">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#issueTypeName">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#priorityName">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+    <owl:DatatypeProperty rdf:about="http://orphos.eip/ontology/core#dueDate">
+        <rdfs:domain rdf:resource="http://orphos.eip/ontology/core#Issue"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+
+</rdf:RDF>

@@ -1,0 +1,352 @@
+{
+  "displayName": "Orphos EIP",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+
+  "attributes": {
+    "userProfileEnabled": "true"
+  },
+
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255},\"pattern\":{\"pattern\":\"^[A-Za-z0-9._%+-]+@appverse\\\\.dev$\",\"error-message\":\"Only @appverse.dev email addresses may register.\"}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"required\":{\"roles\":[\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"required\":{\"roles\":[\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}}]}"
+          ]
+        }
+      }
+    ]
+  },
+
+  "roles": {
+    "realm": [
+      { "name": "ceo",       "description": "Chief Executive Officer — full dashboard access" },
+      { "name": "cto",       "description": "Chief Technology Officer" },
+      { "name": "cfo",       "description": "Chief Financial Officer" },
+      { "name": "coo",       "description": "Chief Operating Officer" },
+      { "name": "chro",      "description": "Chief Human Resources Officer" },
+      { "name": "admin",     "description": "Platform administrator" },
+      { "name": "ingestion_admin", "description": "Ingestion Admin — manages document ingestion defaults and search settings (no other admin access)" },
+      { "name": "data_ai_admin", "description": "Data & AI Admin — manages AI providers, LLM prompts, query history and ontology sources (no other admin access)" },
+      { "name": "secops_admin", "description": "Security & Auth Admin — manages SSO configuration, user management and authentication methods (no other admin access)" },
+      { "name": "executive", "description": "Executive — dashboard access" },
+      { "name": "viewer",    "description": "Viewer — read-only access" },
+      { "name": "guest",     "description": "Guest — no access until a role is assigned in Entra ID" }
+    ]
+  },
+
+  "defaultRoles": ["guest"],
+
+  "clients": [
+    {
+      "clientId": "orphos-spa",
+      "name": "Orphos Executive SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:3001/*",
+        "http://localhost:5173/*",
+        "http://ranjitham-kmn:3001/*",
+        "com.orphos.mobile:/oauth2redirect"
+      ],
+      "webOrigins": [
+        "http://localhost:3001",
+        "http://localhost:5173",
+        "http://ranjitham-kmn:3001"
+      ],
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+
+  "identityProviders": [
+    {
+      "alias": "azure",
+      "displayName": "Sign in with Microsoft",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId":           "REPLACE_WITH_AZURE_CLIENT_ID",
+        "clientSecret":       "REPLACE_WITH_AZURE_CLIENT_SECRET",
+        "authorizationUrl":   "https://login.microsoftonline.com/REPLACE_WITH_TENANT_ID/oauth2/v2.0/authorize",
+        "tokenUrl":           "https://login.microsoftonline.com/REPLACE_WITH_TENANT_ID/oauth2/v2.0/token",
+        "jwksUrl":            "https://login.microsoftonline.com/REPLACE_WITH_TENANT_ID/discovery/v2.0/keys",
+        "issuer":             "https://login.microsoftonline.com/REPLACE_WITH_TENANT_ID/v2.0",
+        "userInfoUrl":        "https://graph.microsoft.com/oidc/userinfo",
+        "defaultScope":       "openid profile email",
+        "clientAuthMethod":   "client_secret_post",
+        "pkceEnabled":        "false",
+        "validateSignature":  "true",
+        "useJwksUrl":         "true",
+        "syncMode":           "FORCE"
+      }
+    }
+  ],
+
+  "identityProviderMappers": [
+    {
+      "name": "azure-name",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": { "syncMode": "INHERIT", "claim": "name",        "user.attribute": "full_name"  }
+    },
+    {
+      "name": "azure-email",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": { "syncMode": "INHERIT", "claim": "email",       "user.attribute": "email"      }
+    },
+    {
+      "name": "azure-given-name",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": { "syncMode": "INHERIT", "claim": "given_name",  "user.attribute": "firstName"  }
+    },
+    {
+      "name": "azure-family-name",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": { "syncMode": "INHERIT", "claim": "family_name", "user.attribute": "lastName"   }
+    },
+    {
+      "name": "azure-role-ceo",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "ceo",       "role": "ceo"       }
+    },
+    {
+      "name": "azure-role-cto",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "cto",       "role": "cto"       }
+    },
+    {
+      "name": "azure-role-cfo",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "cfo",       "role": "cfo"       }
+    },
+    {
+      "name": "azure-role-coo",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "coo",       "role": "coo"       }
+    },
+    {
+      "name": "azure-role-chro",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "chro",      "role": "chro"      }
+    },
+    {
+      "name": "azure-role-executive",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "executive", "role": "executive" }
+    },
+    {
+      "name": "azure-role-viewer",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "viewer",    "role": "viewer"    }
+    },
+    {
+      "name": "azure-role-admin",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "admin",     "role": "admin"     }
+    },
+    {
+      "name": "azure-role-ingestion-admin",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "ingestion_admin", "role": "ingestion_admin" }
+    },
+    {
+      "name": "azure-role-data-ai-admin",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "data_ai_admin", "role": "data_ai_admin" }
+    },
+    {
+      "name": "azure-role-secops-admin",
+      "identityProviderAlias": "azure",
+      "identityProviderMapper": "oidc-role-idp-mapper",
+      "config": { "syncMode": "FORCE", "claim": "roles", "claim.value": "secops_admin", "role": "secops_admin" }
+    }
+  ],
+
+  "clientScopes": [
+    {
+      "name": "profile",
+      "description": "OpenID Connect built-in scope: profile (name, given/family name, preferred_username).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "full name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": { "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "username", "claim.name": "preferred_username", "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "given name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "firstName", "claim.name": "given_name", "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "family name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "lastName", "claim.name": "family_name", "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "description": "OpenID Connect built-in scope: email (email, email_verified).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "email", "claim.name": "email", "jsonType.label": "String", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": { "user.attribute": "emailVerified", "claim.name": "email_verified", "jsonType.label": "boolean", "id.token.claim": "true", "access.token.claim": "true", "userinfo.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "name": "roles",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued":          "true",
+            "claim.name":           "realm_access.roles",
+            "jsonType.label":       "String",
+            "id.token.claim":       "true",
+            "access.token.claim":   "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenant",
+      "description": "Adds tenant_id (UUID) to every issued token. Required for multi-tenant request routing.",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope":  "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name":           "tenant_id",
+            "claim.value":          "REPLACE_WITH_TENANT_ID",
+            "jsonType.label":       "String",
+            "id.token.claim":       "true",
+            "access.token.claim":   "true",
+            "userinfo.token.claim": "true",
+            "access.tokenResponse.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+
+  "defaultDefaultClientScopes": ["roles", "tenant"]
+}

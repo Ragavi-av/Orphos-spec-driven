@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ask Orphos: a standard chat screen. The header is fixed at the top, the conversation
+     scrolls, and the composer is pinned to the bottom. AskOrphosActivity pads the root by
+     the status bar, navigation bar and keyboard insets, so nothing sits under any of them. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/ask_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen"
+    android:orientation="vertical">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+        <ImageView
+            android:id="@+id/ask_back"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/text" />
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="@string/ask_title"
+            android:textColor="@color/text"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+        <!-- Shared header (see HeaderActions): availability dot, bell -->
+        <FrameLayout
+            android:id="@+id/btn_status"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <View
+                android:id="@+id/status_dot"
+                android:layout_width="11dp"
+                android:layout_height="11dp"
+                android:layout_gravity="center"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/status_busy" />
+        </FrameLayout>
+        <FrameLayout
+            android:id="@+id/btn_bell"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_bell"
+                app:tint="@color/text" />
+            <View
+                android:id="@+id/bell_badge"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:visibility="gone"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="9dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/red" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/ask_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="16dp">
+
+            <!-- Empty state: shown until the first question, then the thread takes over. -->
+            <LinearLayout
+                android:id="@+id/ask_intro"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/ask_how"
+                    android:textColor="@color/text"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/ask_suggested"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/ask_suggest_q1"
+                    style="@style/AskSuggestion">
+                    <FrameLayout style="@style/AskSuggestionIcon" android:backgroundTint="@color/orange_deep">
+                        <ImageView style="@style/AskSuggestionGlyph" android:src="@drawable/ic_check_circle" app:tint="@color/orange" />
+                    </FrameLayout>
+                    <TextView style="@style/AskSuggestionText" android:text="@string/ask_q1" />
+                    <ImageView style="@style/AskSuggestionArrow" android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ask_suggest_q2"
+                    style="@style/AskSuggestion">
+                    <FrameLayout style="@style/AskSuggestionIcon" android:backgroundTint="@color/red_deep">
+                        <ImageView style="@style/AskSuggestionGlyph" android:src="@drawable/ic_alert" app:tint="@color/orange" />
+                    </FrameLayout>
+                    <TextView style="@style/AskSuggestionText" android:text="@string/ask_q2" />
+                    <ImageView style="@style/AskSuggestionArrow" android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ask_suggest_q3"
+                    style="@style/AskSuggestion">
+                    <FrameLayout style="@style/AskSuggestionIcon" android:backgroundTint="@color/green_deep">
+                        <ImageView style="@style/AskSuggestionGlyph" android:src="@drawable/ic_trending" app:tint="@color/green" />
+                    </FrameLayout>
+                    <TextView style="@style/AskSuggestionText" android:text="@string/ask_q3" />
+                    <ImageView style="@style/AskSuggestionArrow" android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ask_suggest_q4"
+                    style="@style/AskSuggestion">
+                    <FrameLayout style="@style/AskSuggestionIcon" android:backgroundTint="@color/purple_deep">
+                        <ImageView style="@style/AskSuggestionGlyph" android:src="@drawable/ic_note" app:tint="@color/purple" />
+                    </FrameLayout>
+                    <TextView style="@style/AskSuggestionText" android:text="@string/ask_q4" />
+                    <ImageView style="@style/AskSuggestionArrow" android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Conversation thread (filled as the user asks) -->
+            <LinearLayout
+                android:id="@+id/ask_thread"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Composer, pinned to the bottom -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border_soft" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_composer"
+            android:gravity="center_vertical"
+            android:minHeight="52dp"
+            android:orientation="horizontal"
+            android:paddingStart="18dp"
+            android:paddingEnd="6dp">
+            <EditText
+                android:id="@+id/ask_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="@string/ask_hint"
+                android:imeOptions="actionSend"
+                android:inputType="textMultiLine|textCapSentences"
+                android:lineSpacingMultiplier="1.2"
+                android:maxLines="5"
+                android:paddingVertical="12dp"
+                android:textColor="@color/text"
+                android:textColorHint="@color/text_muted"
+                android:textSize="15sp"
+                android:importantForAutofill="no" />
+            <ImageView
+                android:id="@+id/ask_attach"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/ask_attach"
+                android:focusable="true"
+                android:padding="9dp"
+                android:src="@drawable/ic_attach"
+                app:tint="@color/text_muted" />
+            <!-- The Orphos ORB replaces the old send arrow. Single tap sends;
+                 double tap starts and stops dictation where voice is enabled.
+                 No circle_icon background or tint: the artwork carries the
+                 shape, and a tinted disc behind it read as a sticker on a
+                 button. AskOrphosActivity swaps the src between the white
+                 (resting), dark (transcribing) and glowing (recording) orbs. -->
+            <ImageView
+                android:id="@+id/ask_send"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="2dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/ask_send"
+                android:focusable="true"
+                android:padding="4dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/orb_white" />
+        </LinearLayout>
+
+        <!-- Secure AI note -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <ImageView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:src="@drawable/ic_shield"
+                app:tint="@color/text_muted" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="@string/ask_secure"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

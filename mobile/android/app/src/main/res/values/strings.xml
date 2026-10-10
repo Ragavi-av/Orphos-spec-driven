@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Orphos</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_advisors">Advisors</string>
+    <string name="advisors_with_orphos">with Orphos</string>
+    <string name="nav_business">Business</string>
+    <string name="nav_scribbles">Notes</string>
+    <string name="nav_financials">Financials</string>
+    <string name="nav_metrics">Metrics</string>
+    <string name="voice_ask">Ask Orphos</string>
+
+    <string name="home_greeting">Good morning</string>
+    <string name="home_greeting_matters">Here\'s what matters today</string>
+    <string name="home_greeting_question">What would you like to decide today?</string>
+    <string name="home_search_hint">Search project code, teammates, or ask anything…</string>
+    <string name="home_hey">Hey,</string>
+    <string name="home_name">Executive</string>
+    <string name="brand_orphos">ORPHOS</string>
+    <string name="brand_tagline">INTELLIGENCE THAT EMPOWERS</string>
+    <string name="brand_name">Orphos</string>
+    <string name="home_next_meeting">Next meeting</string>
+    <string name="home_pending">—</string>
+    <string name="home_meeting_next_fmt">In %1$s @ %2$s</string>
+    <string name="home_meeting_none">No more meetings today</string>
+    <string name="home_meeting_unavailable">Couldn\'t load meetings</string>
+    <string name="home_minutes_fmt">%1$d min</string>
+    <string name="home_hours_fmt">%1$d h %2$d min</string>
+    <string name="home_next_travel">Next Travel</string>
+    <string name="home_travel_none">No trips coming up</string>
+    <string name="home_what_matters">What Matters Most Today</string>
+    <string name="home_see_all">See all →</string>
+    <string name="home_tasks">Tasks</string>
+    <string name="home_approvals">Approvals</string>
+    <string name="home_alerts">Alerts</string>
+    <string name="home_completed">completed</string>
+    <string name="home_task_progress">TODAY\'S TASK PROGRESS</string>
+    <string name="home_summary_empty">Nothing needs your attention in today\'s brief.</string>
+    <string name="home_progress_view_tasks">View Tasks</string>
+    <string name="home_status_busy">Busy</string>
+    <string name="home_status_free">Free</string>
+    <string name="home_status_busy_reason">%1$d open tasks — above your Busy threshold of %2$d.</string>
+    <string name="home_status_free_reason">%1$d open tasks — within capacity (Busy above %2$d).</string>
+    <string name="home_status_moderate">Moderate</string>
+    <string name="home_status_available">Available</string>
+    <string name="home_status_reason_fmt">%1$d open tasks · %2$s</string>
+    <string name="home_todays_meetings">Today\'s Meetings</string>
+    <string name="home_view_calendar_arrow">View Calendar ›</string>
+    <string name="home_ai_suggested">AI Suggested for you</string>
+    <string name="home_ai_recommendation">AI RECOMMENDATION</string>
+    <string name="home_create">CREATE</string>
+    <string name="help_qmark">?</string>
+
+    <!-- Ask Orphos (dedicated assistant screen) -->
+    <string name="ask_title">Ask Orphos</string>
+    <string name="ask_how">How can I help you?</string>
+    <string name="ask_hint">Ask Orphos anything…</string>
+    <string name="ask_suggested">Suggested for you</string>
+    <string name="ask_q1">What decisions need my attention today?</string>
+    <string name="ask_q2">What are the top risks I should be aware of?</string>
+    <string name="ask_q3">Show me key opportunities for growth.</string>
+    <string name="ask_q4">Summarize what matters today.</string>
+    <string name="ask_secure">Orphos uses secure AI. Your data is always protected.</string>
+    <string name="ask_send">Send</string>
+    <!-- Voice dictation on the Ask Orphos orb (double tap). Only ever seen where
+         a platform admin has enabled voice for this tenant. -->
+    <string name="ask_voice_listening">Listening… double-tap the orb to finish</string>
+    <string name="ask_voice_transcribing">Transcribing… double-tap to cancel</string>
+    <string name="ask_attach">Attach a file</string>
+    <string name="ask_thinking">Thinking…</string>
+
+    <!-- Today's Calendar -->
+    <string name="cal_title">Today\'s Calendar</string>
+    <string name="cal_subtitle_fmt">%1$s · All times in %2$s</string>
+    <string name="cal_pick_date">Pick a date</string>
+    <string name="cal_no_meetings">No meetings scheduled for this day.</string>
+
+    <!-- Rich meeting detail -->
+    <string name="md_urgent">Urgent</string>
+    <string name="md_prepare_ai">Prepare with AI</string>
+    <string name="md_view_brief">View AI Brief</string>
+
+    <!-- Voice Note -->
+    <string name="vn_title">Voice Note</string>
+    <string name="vn_timer">00:00</string>
+
+    <!-- All Captures -->
+    <string name="ac_title">Saved items</string>
+
+    <!-- Tasks -->
+    <string name="tasks_title">Tasks</string>
+    <string name="tasks_tab_critical">Critical</string>
+    <string name="tasks_tab_high">High</string>
+    <string name="tasks_tab_approval">Approval Required</string>
+    <string name="tasks_tab_critical_fmt">Critical (%1$d)</string>
+    <string name="tasks_tab_high_fmt">High (%1$d)</string>
+    <string name="tasks_tab_approval_fmt">Approval Required (%1$d)</string>
+    <string name="tasks_empty">Nothing needs your attention here.</string>
+    <string name="tasks_approve">Approve</string>
+    <string name="tasks_reject">Reject</string>
+    <string name="tasks_yes">Yes</string>
+    <string name="tasks_no">No</string>
+    <string name="tasks_go_ahead">Go ahead</string>
+    <string name="tasks_hold">Hold</string>
+    <string name="tasks_decided_fmt">%1$s · %2$s</string>
+    <string name="tasks_approved_msg">Approved: %1$s</string>
+    <string name="tasks_rejected_msg">Rejected: %1$s</string>
+    <string name="tasks_section_critical">Critical attention required</string>
+    <string name="tasks_section_high">High priority</string>
+    <string name="tasks_section_approval">Approval required</string>
+    <string name="tasks_menu_in_progress">Mark in progress</string>
+    <string name="tasks_menu_mark_open">Mark as open</string>
+    <string name="tasks_in_progress">In progress</string>
+    <string name="tasks_marked_in_progress_fmt">In progress: %1$s</string>
+    <string name="tasks_marked_open_fmt">Marked open: %1$s</string>
+    <string name="tasks_menu_snooze">Snooze</string>
+    <string name="tasks_menu_dismiss">Dismiss</string>
+    <string name="tasks_detail_priority_fmt">Priority: %1$s</string>
+    <string name="tasks_detail_approval_fmt">Approval: %1$s</string>
+    <string name="tasks_detail_close">Close</string>
+    <string name="tasks_snooze_title">Snooze until</string>
+    <string name="tasks_snooze_1h">In 1 hour</string>
+    <string name="tasks_snooze_4h">In 4 hours</string>
+    <string name="tasks_snooze_tomorrow">Tomorrow, 9:00 AM</string>
+    <string name="tasks_snooze_next_week">Next week, 9:00 AM</string>
+    <string name="tasks_snoozed_fmt">Snoozed · %1$s</string>
+    <string name="tasks_dismissed_fmt">Dismissed: %1$s</string>
+    <string name="tasks_undo">Undo</string>
+    <string name="tasks_done">Done</string>
+    <string name="tasks_completed_fmt">Completed: %1$s</string>
+
+    <!-- Recommendation detail -->
+
+    <!-- AI document brief -->
+
+    <!-- Voice assistant ("I'm listening") -->
+    <string name="va_title">Advisors with Orphos</string>
+    <string name="va_subtitle">Your AI Executive intelligence</string>
+    <string name="va_listening">I\'m listening…</string>
+    <string name="va_processing">Processing…</string>
+    <string name="va_q1">Give me a quick update on critical decisions</string>
+    <string name="va_q2">What\'s on my agenda for today?</string>
+    <string name="va_q3">Do I need to respond to any urgent emails?</string>
+
+    <!-- App lock -->
+    <string name="lock_title">Orphos is locked</string>
+    <string name="lock_subtitle">Unlock with biometrics or your device PIN/pattern</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_setup_title">Secure Orphos</string>
+    <string name="lock_setup_msg">Unlock Orphos with your fingerprint or face, or your device PIN/pattern. You can set up biometrics now, or skip and use your device PIN/pattern.</string>
+    <string name="lock_setup_enable">Set up biometrics</string>
+    <string name="lock_setup_skip">Skip</string>
+
+    <!-- Roles -->
+    <string name="role_tab_people">People</string>
+    <string name="role_tab_operations">Operations</string>
+    <string name="role_tab_technology">Technology</string>
+    <string name="role_tab_overview">Overview</string>
+    <string name="tab_decision_log">Decision</string>
+    <string name="dlog_title">Decision Log</string>
+    <string name="dlog_summary_fmt">Decision Log · %1$d decisions</string>
+    <string name="signed_out">Signed out</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_hint">Require biometric / device PIN to open the app.</string>
+
+    <!-- AI Advisors -->
+    <string name="ai_suggested">AI Suggestions</string>
+    <string name="tab_approvals">Approvals</string>
+    <string name="tab_tasks">Tasks</string>
+    <string name="tab_notifications">Notifications</string>
+    <string name="approvals_empty">No approvals waiting on you.</string>
+    <string name="notifications_empty">No alerts right now.</string>
+    <string name="travel_upcoming">Upcoming Travel</string>
+    <string name="travel_next_list">Next travels</string>
+    <string name="travel_in_month_fmt">In %1$s</string>
+    <string name="travel_empty">No travel in this period.</string>
+    <string name="tag_revenue">Revenue</string>
+    <string name="tag_operations">Operations</string>
+    <string name="tag_people">People</string>
+    <string name="tag_urgent">Urgent</string>
+    <string name="ai_search_history">Search History</string>
+    <!-- Advisors: persona- and data-driven prompt, recommendation and suggestions (AdvisorsInsights) -->
+    <string name="tag_finance">Finance</string>
+    <string name="tag_strategy">Strategy</string>
+    <string name="tag_technology">Technology</string>
+    <string name="tag_general">General</string>
+    <string name="tag_decision">Decision</string>
+    <string name="advisors_prompt_loading">Reading today\'s decisions and briefing…</string>
+    <plurals name="advisors_prompt_decisions_and_briefing">
+        <item quantity="one">You have %1$d decision waiting on you and %2$d critical item(s) in today\'s briefing.</item>
+        <item quantity="other">You have %1$d decisions waiting on you and %2$d critical item(s) in today\'s briefing.</item>
+    </plurals>
+    <plurals name="advisors_prompt_decisions">
+        <item quantity="one">You have %1$d decision waiting on you: %2$s.</item>
+        <item quantity="other">You have %1$d decisions waiting on you. The most urgent is %2$s.</item>
+    </plurals>
+    <string name="advisors_prompt_briefing">Today\'s briefing has %1$d item(s) that need a look.</string>
+    <string name="advisors_prompt_clear">Nothing urgent is waiting on you right now.</string>
+    <string name="advisors_prompt_q_prioritise">Which should I act on first?</string>
+    <string name="advisors_prompt_q_briefing">Brief me on what matters today.</string>
+    <string name="advisors_q_decide">Should I approve \"%1$s\"?</string>
+    <string name="advisors_q_briefing">What\'s behind \"%1$s\"?</string>
+    <string name="advisors_q_delay">What\'s the risk if I delay \"%1$s\"?</string>
+    <string name="advisors_rec_label_fmt">AI RECOMMENDATION · %1$d%%</string>
+    <string name="advisors_rec_preparing">%1$s — preparing the AI recommendation…</string>
+    <string name="advisors_rec_review">Review \"%1$s\". It is the most urgent decision waiting on you.</string>
+    <string name="advisors_ceo_q1">What are the biggest risks to this quarter\'s goals?</string>
+    <string name="advisors_ceo_q2">Which accounts need my attention?</string>
+    <string name="advisors_ceo_q3">Where is the team over capacity this month?</string>
+    <string name="advisors_cfo_q1">Where are we over budget this quarter?</string>
+    <string name="advisors_cfo_q2">How is cash flow trending this month?</string>
+    <string name="advisors_cfo_q3">Which revenue risks should I flag to the board?</string>
+    <string name="advisors_coo_q1">Which operations are at risk of missing their SLAs?</string>
+    <string name="advisors_coo_q2">Where are the bottlenecks this week?</string>
+    <string name="advisors_coo_q3">Which incidents are still open?</string>
+    <string name="advisors_cto_q1">Which systems are breaching their SLAs?</string>
+    <string name="advisors_cto_q2">What security issues need attention this week?</string>
+    <string name="advisors_cto_q3">Which releases or changes are at risk?</string>
+    <string name="advisors_viewer_q1">What are this week\'s company-wide updates?</string>
+    <string name="advisors_viewer_q2">What is on my calendar today?</string>
+    <string name="advisors_viewer_q3">Which of my tasks are due soon?</string>
+    <string name="advisors_chro_q1">Which teams are over capacity?</string>
+    <string name="advisors_chro_q2">Where is attrition risk highest?</string>
+    <string name="advisors_chro_q3">Which open roles are most urgent to fill?</string>
+
+
+    <!-- AI history: the same store as the web dashboard's History ▸ AI tab (CopilotHistory.jsx) -->
+    <string name="copilot_history_loading">Loading history…</string>
+    <string name="copilot_history_empty">No co-pilot history yet. Questions you ask here or in the dashboard\'s AI Co-pilot appear here, grouped by session and date.</string>
+    <string name="copilot_history_unavailable">History isn\'t available right now.</string>
+    <string name="copilot_history_today">Today</string>
+    <string name="copilot_history_yesterday">Yesterday</string>
+    <string name="copilot_history_summary">%1$d session(s) · %2$d questions total</string>
+    <string name="copilot_history_count">%1$d Q</string>
+    <string name="copilot_history_ended">ended</string>
+    <string name="copilot_history_session">Session</string>
+    <string name="copilot_history_delete_session">Delete this session</string>
+    <string name="copilot_history_clear_all">Clear all history</string>
+    <string name="copilot_history_clear_confirm">Clear all of your AI history? It is also cleared from the web dashboard.</string>
+    <string name="copilot_history_clear">Clear</string>
+    <string name="copilot_history_delete_failed">Couldn\'t update history. Please try again.</string>
+
+    <!-- Notes / Jot It Down -->
+    <string name="scr_title">Jot It Down</string>
+    <string name="scr_subtitle">Capture ideas. AI turns them into action.</string>
+    <string name="scr_capture_way">Capture in your way</string>
+    <string name="cap_handwriting_label">Handwriting</string>
+    <string name="cap_handwriting_sub">(Scribble)</string>
+    <string name="cap_type_label">Type Note</string>
+    <string name="cap_voice_label">Voice Note</string>
+    <string name="cap_image_label">Upload Image</string>
+    <string name="cap_image_sub">(Whiteboard)</string>
+    <string name="cap_blank"> </string>
+    <string name="scr_recent">Recent Captures</string>
+    <string name="scr_insights">AI Insights from your notes</string>
+    <string name="scr_stat_notes">Notes</string>
+    <string name="scr_stat_actions">Actions</string>
+    <string name="scr_stat_decisions">Decisions</string>
+    <string name="scr_stat_insights">Insights</string>
+    <string name="ni_title">AI Insights</string>
+    <string name="ni_subtitle">From the notes you captured this week</string>
+    <string name="ni_back">Back</string>
+    <string name="ni_from_fmt">From “%1$s”</string>
+    <string name="ni_untitled">Untitled note</string>
+    <string name="ni_empty_notes">No notes captured this week yet.</string>
+    <string name="ni_empty_actions">No action items found in this week’s notes.</string>
+    <string name="ni_empty_decisions">No decisions found in this week’s notes.</string>
+    <string name="ni_empty_insights">No AI insights for this week’s notes yet.</string>
+
+    <!-- CEO Metrics (company view) -->
+    <string name="cm_view_fmt">%1$s · CEO view</string>
+    <string name="cm_search_hint">Search projects, teams, metrics…</string>
+    <string name="cm_tab_overview">Overview</string>
+    <string name="cm_live">Live</string>
+    <string name="cm_of_target_fmt">of %1$s %2$s</string>
+    <string name="cm_achieved_fmt">%1$d%% achieved</string>
+    <string name="cm_runway">Runway</string>
+    <string name="cm_okrs_title">Company OKRs</string>
+    <string name="cm_expected_today">Expected progress today</string>
+    <string name="cm_on_track">On track</string>
+    <string name="cm_at_risk">At risk</string>
+    <string name="cm_off_track">Off track</string>
+    <string name="cm_decisions_title">Decisions waiting for you</string>
+    <string name="cm_done">DONE</string>
+    <string name="cm_undo">Undo</string>
+    <string name="cm_see_scenarios">See scenarios</string>
+    <string name="cm_assign_owner">Assign owner</string>
+    <string name="cm_detail_owner_fmt">Full detail lives in %1$s\'s screen</string>
+    <string name="cm_sample_note">Sample figures · live data feed not connected yet</string>
+    <string name="cm_board_intro_fmt">From your web dashboard · %1$s</string>
+    <string name="cm_area_def_it">IT Operations — availability, incidents and SLA performance of the systems the business runs on. Tap a metric for its definition.</string>
+    <string name="cm_area_def_projects">Projects &amp; Governance — portfolio health, decisions awaiting sign-off and progress on company objectives. Tap a metric for its definition.</string>
+    <string name="cm_area_def_finance">Finance — cash position, budget use and cost against plan for the current period. Tap a metric for its definition.</string>
+    <string name="cm_area_def_people">People — headcount, payroll and attrition across the organisation. Tap a metric for its definition.</string>
+    <string name="cm_area_def_risk">Risk &amp; Compliance — residual exposure and severity of open items on the risk register. Tap a metric for its definition.</string>
+    <string name="cm_area_def_commercial">Commercial — revenue under contract and the weighted value of open deals. Tap a metric for its definition.</string>
+    <string name="cm_def_what">What it measures</string>
+    <string name="cm_def_now">Current reading</string>
+    <string name="cm_def_target">Target</string>
+    <string name="cm_def_period">Period</string>
+    <string name="cm_def_status">Status</string>
+    <string name="cm_def_source">Source</string>
+    <string name="cm_def_measured">How it is measured</string>
+    <string name="cm_def_direction">Good direction</string>
+    <string name="cm_def_higher">Higher is better</string>
+    <string name="cm_def_lower">Lower is better</string>
+    <string name="cm_def_agg_avg">Average across the period</string>
+    <string name="cm_def_agg_sum">Total across the period</string>
+    <string name="cm_def_agg_last">Latest reading in the period</string>
+    <string name="cm_def_agg_count">Count of open items</string>
+    <string name="cm_def_status_good">On target</string>
+    <string name="cm_def_status_warn">Watch — close to target</string>
+    <string name="cm_def_status_bad">Off target</string>
+    <string name="cm_def_no_target">No target set</string>
+    <string name="cm_board_note">Same widgets and figures as your web dashboard</string>
+    <string name="cm_period_elapsed_fmt">%1$d%% of period elapsed</string>
+    <string name="cm_pct_of_target_fmt">%1$d%% of target %2$s</string>
+    <string name="cm_target_fmt">Target %1$s</string>
+    <string name="cm_no_data">No data for this period</string>
+    <string name="cm_not_permitted">Not available for your role</string>
+    <string name="cm_not_connected">Not connected</string>
+    <string name="cm_board_empty">No widgets on your dashboard yet — add them from the web widget board.</string>
+    <string name="cm_review">Review</string>
+    <string name="cm_decision_kind">DECIDE</string>
+    <string name="cm_attention_kicker_fmt">NEEDS ATTENTION · %1$s</string>
+    <string name="cm_attention_count_fmt">%1$d off target</string>
+    <string name="cm_attention_title_fmt">%1$s: %2$s against a %3$s target</string>
+    <string name="cm_attention_risk_title_fmt">Top open risk: %1$s</string>
+    <string name="cm_attention_body_risk_fmt">Top open risk: %1$s — severity %2$d, %3$s exposed (%4$s).</string>
+    <string name="cm_attention_body_risk_short_fmt">Severity %1$d, %2$s exposed · %3$s.</string>
+    <string name="cm_attention_body_budget_fmt">%1$d cost centres are over budget; the largest overrun is %2$s (%3$s over).</string>
+    <string name="cm_recent_decisions">Recent decisions</string>
+    <string name="cm_view">View</string>
+    <string name="cm_okr_krs_fmt">%1$d key results</string>
+    <string name="cm_ask">Ask Orphos about this</string>
+    <string name="cm_tile_okrs">OKRs</string>
+    <string name="cm_tile_projects">Projects</string>
+    <string name="cm_tile_risks">Risks</string>
+    <string name="cm_tile_pipeline">Pipeline</string>
+    <string name="cm_h_board">On your dashboard</string>
+    <string name="cm_h_projects">Projects in flight</string>
+    <string name="cm_h_over_budget">Over-budget cost centres</string>
+    <string name="cm_h_cash">Cash flow by month</string>
+    <string name="cm_h_risks">Open risk register</string>
+    <string name="cm_h_pipeline">Open pipeline</string>
+    <string name="cm_h_okrs">Objectives and key results</string>
+    <string name="cm_due_fmt">due %1$s</string>
+    <string name="cm_spent_of_fmt">%1$s of %2$s spent</string>
+    <string name="cm_over_by_fmt">%1$s over</string>
+    <string name="cm_cash_note_fmt">In %1$s · Out %2$s</string>
+    <string name="cm_severity_fmt">Severity %1$d</string>
+    <string name="cm_closes_fmt">closes %1$s</string>
+    <string name="cm_of_deal_fmt">of %1$s</string>
+    <string name="cm_sheet_okrs_sub_fmt">%1$d objectives · %2$d on track</string>
+    <string name="cm_sheet_projects_sub_fmt">%1$d in flight · %2$d at risk or delayed</string>
+    <string name="cm_sheet_risks_sub_fmt">%1$d open · %2$s total exposure</string>
+    <string name="cm_sheet_pipeline_sub_fmt">%1$d deals · %2$s weighted</string>
+    <string name="cm_close">Close</string>
+
+    <!-- Data-driven role dashboards (e.g. CHRO People) -->
+    <string name="rd_back">Dashboard</string>
+    <string name="rd_live">Live</string>
+    <string name="rd_not_on_mobile">Not available on mobile yet</string>
+
+    <!-- Financials v2 -->
+    <string name="fin_search_hint">Search project code, teammates…</string>
+    <string name="fin_tab_dashboard">Dashboard</string>
+    <string name="fin_tab_pnl">P&amp;L</string>
+    <string name="fin_tab_cashflow">Cash flow</string>
+    <string name="fin_tab_expenses">Expenses</string>
+
+    <!-- P&L section -->
+    <string name="loading">Loading…</string>
+    <string name="fin_no_data">No financial data from the server yet.</string>
+    <string name="fin_net_cashflow">Net cash flow</string>
+    <string name="fin_ytd">Year to date</string>
+    <string name="fin_ytd_fmt">FY %1$s year to date · through %2$s</string>
+    <string name="fin_in_vs_out">Cash in vs out</string>
+    <string name="fin_cash_in">Cash in</string>
+    <string name="fin_cash_out">Cash out</string>
+    <string name="fin_budget_alert">BUDGET ALERT</string>
+    <string name="fin_overrun_fmt">%1$s is at %2$d%% of budget (%3$s spent of %4$s).</string>
+    <string name="fin_revenue_arr">Revenue (ARR)</string>
+    <string name="fin_budget_variance">Budget variance</string>
+
+    <!-- Cash flow section -->
+    <string name="fin_cf_net_change">Net change in cash</string>
+
+    <!-- Expenses section -->
+    <string name="fin_exp_total">Total expenses</string>
+    <string name="fin_live">● Live</string>
+    <string name="fin_as_of_fmt">%1$s · FY %2$s</string>
+    <string name="fin_revenue_risk">Revenue &amp; risk</string>
+    <string name="fin_recurring_revenue">Recurring revenue</string>
+    <string name="fin_risk_exposure">Risk exposure</string>
+    <string name="fin_it_budget">IT budget consumed</string>
+    <string name="fin_margin_fmt">%1$.1f%% MARGIN</string>
+    <string name="fin_breakdown">Breakdown</string>
+    <string name="fin_receipts">Cash receipts</string>
+    <string name="fin_payments">Cash payments</string>
+    <string name="fin_annual_payroll">Annual payroll</string>
+    <string name="fin_cf_by_month">Cash flow by month</string>
+    <string name="fin_total_receipts">Total receipts</string>
+    <string name="fin_total_payments">Total payments</string>
+    <string name="fin_by_cost_centre">By cost centre</string>
+    <string name="fin_other_fmt">Other (%1$d)</string>
+    <string name="fin_share_fmt">%1$s · %2$d%%</string>
+    <string name="fin_forecasts">Forecasts</string>
+    <string name="fin_settings2">Financial Settings</string>
+
+    <!-- Meeting detail -->
+    <string name="md_title">Detailed view</string>
+    <string name="md_attendees_fmt">Attendees (%d)</string>
+    <string name="md_view_all">View all</string>
+    <string name="md_others">Others</string>
+    <string name="md_ai_brief">AI Brief</string>
+    <string name="md_actions">Actions</string>
+    <string name="md_join_meeting">Join Meeting</string>
+    <string name="md_add_notes">Add Notes</string>
+    <string name="meeting_prepare">Prepare me</string>
+    <string name="meetings_today_count">%1$d Meetings Today</string>
+    <string name="meetings_full_agenda">Full agenda ›</string>
+    <string name="home_voice_hint">Voice CEO — tap to speak</string>
+    <string name="home_summary_title">AI SUMMARY</string>
+    <string name="home_summary_title2">AI Summary</string>
+    <string name="home_view_tasks">View All tasks</string>
+    <string name="home_upcoming_meetings">Upcoming Meetings</string>
+    <string name="home_view_calendar">View Calendar</string>
+    <string name="home_meeting_in">Upcoming meeting in %1$s</string>
+    <string name="home_travel_in">Next travel in %1$s</string>
+
+    <string name="decision_confidence_label">AI Confidence</string>
+    <string name="decision_impact">Impact: %1$s</string>
+    <string name="decision_risk">Risk: %1$s</string>
+    <string name="decision_see_analysis">See Analysis</string>
+    <string name="decision_approve">Approve</string>
+
+    <string name="placeholder_advisors">Decision queue and meeting briefs arrive here in Phase 1.</string>
+    <string name="placeholder_business">Team intelligence — productivity, availability, burnout — in Phase 2.</string>
+    <string name="placeholder_scribbles">Capture by voice, photo, or handwriting in Phase 2.</string>
+    <string name="placeholder_financials">Cash flow, P&amp;L and forecasts (read-only) in Phase 2.</string>
+
+    <string name="settings_title">Connection</string>
+    <string name="settings_subtitle">Point the app at your organisation\'s Orphos server.</string>
+    <string name="settings_base_url">API endpoint (https://…)</string>
+    <string name="settings_tenant">Tenant</string>
+    <string name="settings_keycloak_url">Sign-in (Keycloak) URL</string>
+    <string name="settings_demo">Demo mode</string>
+    <string name="settings_demo_hint">Use built-in sample data when no server is reachable.</string>
+    <string name="settings_alerts_high">Include High priority in alerts</string>
+    <string name="settings_alerts_high_hint">When off, only Critical items count as alerts.</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_saved">Connection settings saved.</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_hint">App display language.</string>
+    <string name="lang_english">English</string>
+    <string name="lang_japanese">日本語</string>
+    <string name="access_denied">You don\'t have access to this section.</string>
+    <string name="sign_out">Sign out</string>
+    <string name="access_disabled_title">Mobile access disabled</string>
+    <string name="access_disabled_msg">Your administrator has turned off mobile access for this organisation. Please contact your admin.</string>
+
+    <string name="menu_settings">Settings</string>
+    <string name="menu_signout">Sign out</string>
+    <string name="menu_language">Language (English / 日本語)</string>
+    <string name="menu_notifications">Notifications</string>
+    <string name="demo_banner">Demo mode — sample data</string>
+
+    <string name="login_tagline">Your executive decision copilot.</string>
+    <string name="login_tenant_hint">Organisation / tenant</string>
+    <string name="login_signin">Sign in with SSO</string>
+    <string name="login_demo">Continue in demo mode</string>
+    <string name="login_need_tenant">Enter your organisation first.</string>
+    <string name="login_cancelled">Sign-in cancelled.</string>
+    <string name="login_failed">Sign-in failed. Please try again.</string>
+
+    <string name="advisors_title">Decision queue</string>
+    <string name="tab_decision_queue">Decision queue</string>
+    <string name="tab_todays_meeting">Today\'s meeting</string>
+    <string name="tab_travel">Travel</string>
+    <!-- Decision Log tab in the Business host. Backed by decision-log-service
+         via /api/decisions - the same store the web Decision Log plugin reads. -->
+    <string name="tab_decisions">Decisions</string>
+    <!-- Business ▸ Notifications. Section titles and empty lines are the same wording
+         as the web dashboard panel (NotificationsPanel.jsx LEVELS), so the two surfaces
+         read identically. -->
+    <string name="notif_alerts">Alerts</string>
+    <string name="notif_warnings">Warnings!</string>
+    <string name="notif_information">Information</string>
+    <string name="notif_no_alerts">No alerts.</string>
+    <string name="notif_no_warnings">No warnings.</string>
+    <string name="notif_nothing_to_note">Nothing to note.</string>
+    <string name="notif_offline">Not live — couldn\'t reach notifications</string>
+    <string name="notif_title">Notifications</string>
+    <string name="notif_active_fmt">%1$d active</string>
+    <string name="notif_from_fmt">From: %1$s</string>
+    <!-- Today's Calendar, now backed by the live meetings feed. -->
+    <string name="cal_in_min_fmt">IN %1$d MIN</string>
+    <string name="cal_in_hm_fmt">IN %1$dH %2$dM</string>
+    <string name="cal_offline">Not live — couldn\'t reach the calendar</string>
+    <string name="cal_now">Now</string>
+    <string name="cal_title_day">Calendar</string>
+    <!-- Shown when the decision list came from the offline cache instead of
+         decision-log-service. Without it a populated screen is
+         indistinguishable from a working one. -->
+    <string name="dlog_offline">Not live — couldn\'t reach the decision log</string>
+    <!-- Connected mode never substitutes sample data: a failed read shows this instead,
+         and a failed write says so rather than showing the change as applied. -->
+    <string name="data_unavailable">Couldn\'t reach the server — nothing to show until it\'s back.</string>
+    <string name="action_not_saved">Not saved — couldn\'t reach the server. Please try again.</string>
+    <string name="capture_not_saved">Capture not saved — couldn\'t reach the server.</string>
+    <string name="ask_unavailable">Couldn\'t reach Orphos. Please try again.</string>
+    <string name="captures_empty">No captures yet.</string>
+    <string name="tab_team_intel">Team Intelligence</string>
+    <string name="travel_trips_count">%1$d Trips</string>
+    <string name="travel_today_sub">Upcoming trips extracted from your mail</string>
+    <string name="meeting_ai_brief">AI Brief</string>
+    <string name="meeting_download">Download Brief</string>
+    <string name="filter_all">All</string>
+    <string name="filter_urgent">Urgent</string>
+    <string name="filter_important">Important</string>
+    <string name="filter_future">Future</string>
+
+    <string name="decision_reject">Reject</string>
+    <string name="decision_done">Done</string>
+    <string name="detail_title">Decision</string>
+    <string name="detail_context">Context</string>
+    <string name="detail_analysis">AI Analysis</string>
+    <string name="detail_key_impacts">Key impacts</string>
+    <string name="detail_recommendations">Recommendations</string>
+    <string name="detail_risk_label">Risk</string>
+
+    <string name="confirm_approve_title">Approve decision?</string>
+    <string name="confirm_reject_title">Reject decision?</string>
+    <string name="confirm_approve_msg">Approve “%1$s”? This records your decision.</string>
+    <string name="confirm_status_msg">Set this decision to %1$s? This records your decision.</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="approved_toast">Approved: %1$s</string>
+    <string name="status_updated">Decision set to %1$s</string>
+
+    <string name="voice_need_mic">Microphone permission is needed for voice.</string>
+    <string name="voice_unavailable">Voice input is not available on this device.</string>
+    <string name="voice_listening">Listening…</string>
+
+    <string name="business_title">Team Intelligence</string>
+    <string name="business_productivity">Team productivity</string>
+    <string name="business_availability">Employee availability</string>
+    <string name="business_wellbeing">Wellbeing</string>
+    <string name="business_focus_time">Best Focus Time</string>
+    <string name="business_focus_today">Today</string>
+    <string name="business_focus_window">2:00 PM – 4:00 PM</string>
+    <string name="business_focus_note">Most teammates in focus time</string>
+    <string name="business_suggested_action">Suggested action</string>
+    <string name="business_share_mail">Share mail</string>
+
+    <string name="scribbles_title">Jot it down</string>
+    <string name="scribbles_recent">Recent captures</string>
+    <string name="capture_type_note">Type Note</string>
+    <string name="capture_voice_note">Voice Note</string>
+    <string name="capture_image">Upload Image</string>
+    <string name="capture_handwriting">Handwriting</string>
+    <string name="capture_handwriting_soon">Handwriting capture is coming in a later build.</string>
+    <string name="capture_whiteboard">Whiteboard capture</string>
+    <string name="capture_type_hint">Write your note…</string>
+    <string name="capture_save">Save</string>
+    <string name="capture_key_points">Key points</string>
+    <string name="capture_share">Share</string>
+    <string name="capture_save_continue">Save &amp; Continue</string>
+    <string name="capture_need_camera">Camera permission is needed to capture images.</string>
+
+    <string name="scribble_title">Scribble</string>
+    <string name="scribble_undo">Undo</string>
+    <string name="scribble_clear">Clear</string>
+    <string name="scribble_done">Done</string>
+
+    <string name="processing_title">Processing…</string>
+    <string name="processing_analyzing">AI is analyzing your capture</string>
+    <string name="processing_hint">The more context you provide, the better AI understands</string>
+    <string name="step_reading">Reading content</string>
+    <string name="step_understanding">Understanding context</string>
+    <string name="step_extracting">Extracting key points</string>
+    <string name="step_categorizing">Categorizing</string>
+    <string name="step_summary">Preparing summary</string>
+    <string name="step_summary_sub">Creating AI summary and recommendations</string>
+    <string name="processing_pct">%1$d%%</string>
+    <string name="processing_whats">What\'s happening now?</string>
+    <string name="processing_whats_body">AI is structuring your notes into actionable insights, decisions, and action items.</string>
+    <string name="processing_tip">Tip</string>
+    <string name="processing_tip_body">Clear captures help AI generate more accurate decisions and action items.</string>
+
+    <!-- Scribble canvas -->
+    <string name="tool_pen">PEN</string>
+    <string name="tool_highlighter">HIGHLIGHTER</string>
+    <string name="tool_eraser">ERASER</string>
+    <string name="tool_shapes">SHAPES</string>
+    <string name="tool_lasso">LASSO</string>
+    <string name="tool_color">COLOR</string>
+    <string name="shape_line">Line</string>
+    <string name="shape_arrow">Arrow</string>
+    <string name="shape_rectangle">Rectangle</string>
+    <string name="shape_oval">Circle</string>
+    <string name="scribble_lasso_hint">Draw a loop around strokes to select them, then drag to move.</string>
+    <string name="scribble_lasso_selected">%d selected · drag to move, tap a colour to recolour</string>
+    <string name="scribble_lasso_none">Nothing inside the loop.</string>
+    <string name="scribble_lasso_delete">Delete</string>
+
+    <!-- Capture image (camera) -->
+    <string name="capture_image_title">Capture image</string>
+    <string name="capture_image_subtitle">Frame your whiteboard or document clearly</string>
+    <string name="capture_framing">AI framing on</string>
+    <string name="capture_framing_sub">We\'ll detect the content and enhance readability.</string>
+    <string name="capture_good_framing">Good framing</string>
+    <string name="capture_good_lighting">Good lighting</string>
+    <string name="capture_good_lighting_sub">All text looks clear and readable</string>
+    <string name="capture_gallery">Gallery</string>
+    <string name="capture_auto_detect">Auto Detect</string>
+    <string name="capture_retake">Retake</string>
+    <string name="capture_tips">Tips</string>
+    <string name="capture_use_photo">Use Photo</string>
+    <string name="capture_done">Done</string>
+    <string name="zoom_half">0.5x</string>
+    <string name="zoom_1x">1x</string>
+    <string name="zoom_2x">2x</string>
+    <string name="zoom_5x">5x</string>
+    <string name="zoom_value">%1$sx</string>
+    <string name="capture_framing_off">AI framing off</string>
+    <string name="capture_framing_off_sub">Turn on to get live framing and lighting guidance.</string>
+    <string name="capture_still_desc">Image to send for AI processing</string>
+    <string name="capture_camera_permission_msg">Camera access is needed to show the live preview. Tap to allow, or pick an image from Gallery.</string>
+    <string name="capture_camera_unavailable">The camera couldn\'t start on this device. You can still pick an image from Gallery.</string>
+    <string name="capture_framing_searching">Point at a whiteboard or document</string>
+    <string name="capture_framing_closer">Move closer to the content</string>
+    <string name="capture_framing_cut_off">Content is cut off — move back</string>
+    <string name="capture_framing_steady">Hold steady…</string>
+    <string name="capture_framing_capturing">Capturing…</string>
+    <string name="capture_low_light">Low light</string>
+    <string name="capture_low_light_sub">Move somewhere brighter or turn on more lights</string>
+    <string name="capture_glare">Glare detected</string>
+    <string name="capture_glare_sub">Tilt the phone slightly to avoid reflections</string>
+    <string name="capture_auto_on">Auto Detect on — hold the content in frame and we\'ll capture it.</string>
+    <string name="capture_auto_off">Auto Detect off.</string>
+    <string name="capture_auto_needs_camera">Auto Detect needs the live camera.</string>
+    <string name="capture_failed">Couldn\'t take the photo. Try again.</string>
+    <string name="capture_nothing_yet">Capture a photo or pick one from Gallery first.</string>
+    <string name="capture_ready_hint">Review the image, then tap Done to process it with AI.</string>
+    <string name="capture_share_chooser">Share image</string>
+    <string name="capture_tips_title">Tips for a clear capture</string>
+    <string name="capture_tips_body">• Fill the frame with the whiteboard or page, keeping all edges inside the corners.\n\n• Face the content straight on to avoid slanted text.\n\n• Use even light and avoid reflections from windows or lamps.\n\n• Pinch or tap a zoom level to get closer instead of moving at an angle.\n\n• Turn on Auto Detect to capture automatically once the framing is good.</string>
+
+    <string name="capture_summary_title">Capture Summary</string>
+    <string name="capture_processed">Processed by AI</string>
+    <string name="capture_summary_heading">Summary</string>
+
+
+    <string name="privacy_title">Privacy &amp; data</string>
+    <string name="privacy_ai_title">AI in this app</string>
+    <string name="privacy_ai_body">Orphos uses AI to summarise, analyse and recommend. AI-generated content is labelled, and you can always review the underlying decisions.</string>
+    <string name="privacy_consent">Consent</string>
+    <string name="privacy_analytics">Usage analytics</string>
+    <string name="privacy_personalisation">Personalised insights</string>
+    <string name="privacy_your_data">Your data</string>
+    <string name="privacy_export">Export my data</string>
+    <string name="privacy_delete">Delete my data</string>
+    <string name="privacy_delete_msg">This clears your session and local data on this device and signs you out. Server-side deletion follows the platform DSAR process.</string>
+    <string name="privacy_delete_confirm">Delete</string>
+    <string name="privacy_deleted">Your local data has been deleted.</string>
+    <string name="privacy_note">You can withdraw consent at any time. Data-subject rights (access, correction, erasure, portability) are honoured under GDPR, Japan\'s APPI and the US CCPA.</string>
+
+    <string name="fin_credit_score">Credit score</string>
+    <string name="fin_credit_note">Suitable to share with investors</string>
+    <string name="fin_readonly_note">Read-only • figures shown for the current period.</string>
+    <string name="fin_my_portfolio">My Portfolio</string>
+    <string name="fin_dashboard">Dashboard</string>
+    <string name="fin_pnl">P&amp;L</string>
+    <string name="fin_cash_flow">Cash Flow</string>
+    <string name="fin_expenses">Expenses</string>
+    <string name="fin_income">Income</string>
+    <string name="fin_capital">Capital allocation</string>
+    <string name="fin_forecast">Forecast</string>
+    <string name="fin_reports">Reports</string>
+    <string name="fin_tax">Tax &amp; Compliance</string>
+    <string name="fin_insights">Insights</string>
+    <string name="fin_settings">Financial Settings (Bank accounts, …)</string>
+
+    <!-- Handwriting: review before saving -->
+    <string name="scribble_empty">Write something on the canvas first.</string>
+    <string name="review_title">Review note</string>
+    <string name="review_file_name">File name</string>
+    <string name="review_file_name_hint">Name this note</string>
+    <string name="review_extracted_heading">Extracted text</string>
+    <string name="review_text_hint">What the handwriting says…</string>
+    <string name="review_summary_hint">Add a short summary…</string>
+    <string name="review_points_hint">One key point per line</string>
+    <string name="review_file_name_required">Enter a file name to save this note.</string>
+    <string name="review_text_required">Add the note\'s text before saving.</string>
+    <string name="review_ai_unavailable">The AI summary isn\'t available right now. Check the text, and add a summary if you like.</string>
+    <string name="review_voice_demo">Demo mode: this is a sample transcript and summary, not what you said. Your recording is still the one that plays back.</string>
+    <string name="review_typed_heading">Original typed content</string>
+    <string name="review_typed_hint">Your note…</string>
+    <string name="review_typed_empty">Type something before tapping Done.</string>
+    <string name="review_not_read">The handwriting couldn\'t be read. Type what it says below.</string>
+    <string name="review_saving">Saving…</string>
+    <string name="review_saved">Saved. It\'s in Recent Captures and Saved items, and searchable on the web.</string>
+    <string name="review_saved_not_indexed">Saved, but not yet searchable on the web: the document service didn\'t respond. It will be retried.</string>
+    <string name="review_saved_local">Saved to Recent Captures and Saved items on this device.</string>
+    <string name="scr_saved_items_link">Saved items →</string>
+    <string name="capture_searchable">Searchable on web</string>
+    <string name="capture_not_searchable">Not yet searchable on web</string>
+
+    <!-- Voice note: record → transcribe → AI → review → save -->
+    <string name="vn_record">Record</string>
+    <string name="vn_done">Done</string>
+    <string name="vn_record_again">Record again</string>
+    <string name="vn_pause">Pause</string>
+    <string name="vn_resume">Resume</string>
+    <string name="vn_cancel_title">Discard this recording?</string>
+    <string name="vn_cancel_message">What you\'ve recorded so far will be deleted. Nothing has been saved.</string>
+    <string name="vn_cancel_confirm">Discard</string>
+    <string name="vn_keep_recording">Keep recording</string>
+    <string name="vn_cancelled">Recording discarded.</string>
+    <string name="vn_status_paused">Paused. Tap Resume to carry on, or Done if you\'ve finished.</string>
+    <string name="vn_status_idle">Tap Record and start speaking.</string>
+    <string name="vn_status_idle_demo">Demo mode: record anything. You\'ll get a sample transcript and summary.</string>
+    <string name="vn_status_recording">Recording… tap Done when you\'ve finished.</string>
+    <string name="vn_status_ready">Recording kept. Tap Done to transcribe it, or record again.</string>
+    <string name="vn_mic_denied">Allow microphone access to record a voice note.</string>
+    <string name="vn_record_failed">Couldn\'t start recording. Check that no other app is using the microphone.</string>
+    <string name="vn_too_short">That was too short to hear. Record a little longer.</string>
+    <string name="vn_max_reached">Maximum length reached, so recording stopped.</string>
+    <string name="vn_err_not_enabled">Voice transcription isn\'t enabled for your organisation. Ask an admin to turn on Voice.</string>
+    <string name="vn_err_offline">Voice notes need a connection to Orphos to be transcribed.</string>
+    <string name="vn_err_no_speech">No speech was recognised in the recording. Try again, closer to the mic.</string>
+    <string name="vn_err_timeout">Transcription timed out. Check your connection and try again.</string>
+    <string name="vn_err_unavailable">Speech recognition is unavailable right now. Try again shortly.</string>
+    <string name="step_transcribing">Transcribing audio</string>
+    <string name="step_transcribing_sub">Converting speech to text with Whisper</string>
+    <string name="step_ai_processing">AI processing</string>
+    <string name="step_preparing_review">Preparing review</string>
+    <string name="review_recording_heading">Original recording</string>
+    <string name="review_recording_unavailable">The recording couldn\'t be loaded.</string>
+    <string name="review_transcript_heading">Transcription</string>
+    <string name="review_transcript_hint">What was said…</string>
+    <string name="review_image_heading">Extracted text (OCR)</string>
+    <string name="review_image_hint">The text in the image…</string>
+    <string name="review_image_no_text">No readable text was found in this image. Type what it says below, or save the image as it is.</string>
+    <string name="review_image_unavailable">The image couldn\'t be read right now. Type what it says below, or go back and try again.</string>
+    <string name="review_image_low_confidence">Only parts of this image could be read — handwriting often can\'t be. Correct the text below against the image; no summary was made from it.</string>
+    <string name="capture_no_camera">No camera app is available on this device.</string>
+    <string name="capture_image_unreadable">That image couldn\'t be opened. Try another one.</string>
+    <string name="audio_play">Play recording</string>
+    <string name="audio_pause">Pause recording</string>
+    <string name="capture_meta_voice">Voice note · %1$s</string>
+</resources>

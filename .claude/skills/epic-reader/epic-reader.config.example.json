@@ -1,0 +1,25 @@
+{
+  "projectKey": "",
+  "epicIssueType": "Epic",
+  "storyIssueType": "Story",
+  "approvedStatuses": ["Approved"],
+
+  "authorizedApprovers": {
+    "accountIds": [],
+    "groups": []
+  },
+
+  "forbidSelfApproval": true,
+  "rejectIfEditedAfterApproval": true,
+  "protectedFields": ["summary", "description"],
+
+  "approverField": "",
+  "approverFieldMustMatchTransition": true,
+
+  "epicLinkField": "parent",
+  "storyPointsField": "",
+  "defaultLabels": ["epic-reader"],
+  "commentOnEpic": true,
+  "maxStoriesPerRun": 25,
+  "scanLimit": 50
+}

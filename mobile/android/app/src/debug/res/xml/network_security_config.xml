@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEBUG BUILD ONLY (overrides src/main for the debug variant). Testers run the stack on
+     their own machines, at their own LAN IPs, over plain HTTP, so the test APK may not pin
+     a host list. Release builds still use src/main's localhost/LAN-only whitelist. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

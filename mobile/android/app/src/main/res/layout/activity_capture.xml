@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen"
+    android:orientation="vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingTop="52dp"
+    android:paddingBottom="16dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/capture_back"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/text" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_image_title"
+                android:textColor="@color/text"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_image_subtitle"
+                android:textColor="@color/text_muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+        <!-- Shared header (see HeaderActions): availability dot, bell -->
+        <FrameLayout
+            android:id="@+id/btn_status"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <View
+                android:id="@+id/status_dot"
+                android:layout_width="11dp"
+                android:layout_height="11dp"
+                android:layout_gravity="center"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/status_busy" />
+        </FrameLayout>
+        <FrameLayout
+            android:id="@+id/btn_bell"
+            android:layout_width="46dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_bell"
+                app:tint="@color/text" />
+            <View
+                android:id="@+id/bell_badge"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:visibility="gone"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="9dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@color/red" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- AI framing -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/card_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
+        <TextView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/bg_ai_ring"
+            android:backgroundTint="@color/link"
+            android:gravity="center"
+            android:text="@string/help_qmark"
+            android:textColor="@color/link"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/capture_framing_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/capture_framing"
+                android:textColor="@color/text"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/capture_framing_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/capture_framing_sub"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/capture_framing_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true" />
+    </LinearLayout>
+
+    <!-- Viewfinder: the live camera, or the captured / picked image awaiting Done -->
+    <FrameLayout
+        android:id="@+id/capture_viewfinder"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_viewfinder">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/capture_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:implementationMode="compatible"
+            app:scaleType="fillCenter" />
+
+        <ImageView
+            android:id="@+id/capture_still"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#080B14"
+            android:contentDescription="@string/capture_still_desc"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+
+        <!-- Corner guides, plus the detected content outline while AI framing is on -->
+        <com.orphos.mobile.ui.scribbles.FramingOverlayView
+            android:id="@+id/capture_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Shown when the camera can't run (permission denied / no camera) -->
+        <TextView
+            android:id="@+id/capture_camera_msg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginHorizontal="32dp"
+            android:background="@drawable/card_bg_2"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:padding="14dp"
+            android:text="@string/capture_camera_permission_msg"
+            android:textColor="@color/text"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/capture_framing_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="16dp"
+            android:layout_marginHorizontal="48dp"
+            android:background="@drawable/bg_pill_green"
+            android:drawableStart="@drawable/ic_check_circle"
+            android:drawablePadding="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:text="@string/capture_good_framing"
+            android:textColor="@color/on_primary"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <!-- Lighting hint -->
+        <LinearLayout
+            android:id="@+id/capture_lighting"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="64dp"
+            android:layout_marginHorizontal="24dp"
+            android:background="@drawable/card_bg_2"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:visibility="gone">
+            <ImageView
+                android:id="@+id/capture_lighting_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_check_circle"
+                app:tint="@color/green" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/capture_lighting_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/capture_good_lighting"
+                    android:textColor="@color/green"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/capture_lighting_sub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/capture_good_lighting_sub"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Zoom: the pills are filled from the camera's real zoom range -->
+        <LinearLayout
+            android:id="@+id/capture_zoom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_zoom_group"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            <TextView android:id="@+id/zoom_half" style="@style/ZoomPill" android:text="@string/zoom_half" />
+            <TextView android:id="@+id/zoom_1x" style="@style/ZoomPill"
+                android:background="@drawable/bg_zoom_active" android:textColor="#111111" android:text="@string/zoom_1x" />
+            <TextView android:id="@+id/zoom_2x" style="@style/ZoomPill" android:text="@string/zoom_2x" />
+            <TextView android:id="@+id/zoom_5x" style="@style/ZoomPill" android:text="@string/zoom_5x"
+                android:visibility="gone" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- share / more / done -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <ImageView
+            android:id="@+id/capture_share"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/capture_share"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_share"
+            app:tint="@color/text" />
+        <TextView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="•••"
+            android:textColor="@color/text"
+            android:textSize="14sp" />
+        <TextView
+            android:id="@+id/capture_done"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="10dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:paddingHorizontal="6dp"
+            android:text="@string/capture_done"
+            android:textColor="@color/link"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Shutter row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/capture_gallery"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/card_bg_2"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="11dp"
+                android:src="@drawable/ic_file"
+                app:tint="@color/text_secondary" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="@string/capture_gallery"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/capture_shutter"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:background="@drawable/bg_shutter_ring"
+            android:clickable="true"
+            android:focusable="true">
+            <View
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:layout_gravity="center"
+                android:background="@drawable/circle_icon"
+                android:backgroundTint="@android:color/white" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/capture_auto"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/card_bg_2"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="11dp"
+                android:src="@drawable/ic_scan"
+                app:tint="@color/text_secondary" />
+            <TextView
+                android:id="@+id/capture_auto_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="@string/capture_auto_detect"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Retake / Tips / Use Photo -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/capture_retake"
+            style="@style/CaptureFooterBtn"
+            android:background="@drawable/card_bg_2"
+            android:drawableStart="@drawable/ic_arrow_back"
+            android:text="@string/capture_retake"
+            android:textColor="@color/text_secondary" />
+        <TextView
+            android:id="@+id/capture_tips"
+            style="@style/CaptureFooterBtn"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/card_bg_2"
+            android:drawableStart="@drawable/ic_bulb"
+            android:text="@string/capture_tips"
+            android:textColor="@color/text_secondary" />
+        <TextView
+            android:id="@+id/capture_use_photo"
+            style="@style/CaptureFooterBtn"
+            android:layout_weight="1.4"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/bg_btn_primary_sm"
+            android:drawableEnd="@drawable/ic_arrow_right"
+            android:text="@string/capture_use_photo"
+            android:textColor="@color/on_primary"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

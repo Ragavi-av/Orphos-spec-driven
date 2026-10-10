@@ -1,0 +1,95 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: agent-orchestrator-service
+  threads:
+    virtual:
+      enabled: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8443}/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs
+  # Kafka backbone for event-driven triggering (design §12 Phase 4). The listener only starts when
+  # eip.orchestrator.kafka-enabled=true, so this config is inert until a broker is available.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:eip-kafka:9092}
+    consumer:
+      group-id: agent-orchestrator
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    # Producer side is only used by KafkaErrorHandlingConfig's DeadLetterPublishingRecoverer,
+    # to publish exhausted-retry agent-events messages to eip.agent-events.DLT.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+ollama:
+  base-url: ${OLLAMA_URL:http://eip-ollama:11434}
+
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    # OUTBOUND side of /api/internal/ shared secret — attached to every poll
+    # against admin-service so its InternalServiceTokenFilter accepts the call.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    # Shared internal-service token — outbound on /invoke + approval relays, and
+    # inbound enforcement (event ingress) via eip-core-security's filter.
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+agent:
+  cycle-ms: 900000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+# Multi-issuer JWT validation. The trusted-issuer set is fetched from
+# admin-service so a new tenant is accepted without restarting this service.
+# spring.security.oauth2.resourceserver.jwt above is intentionally kept as
+# backward-compatible dead weight — the AuthenticationManagerResolver in
+# eip-common bypasses it.
+eip:
+  orchestrator:
+    enabled: ${EIP_ORCHESTRATOR_ENABLED:true}
+    registry-base-url: ${EIP_REGISTRY_URL:http://eip-platform-registry:8080}
+    internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    scan-interval-ms: ${EIP_ORCHESTRATOR_SCAN_INTERVAL_MS:900000}
+    kafka-enabled: ${EIP_ORCHESTRATOR_KAFKA_ENABLED:false}
+    events-topic: ${EIP_ORCHESTRATOR_EVENTS_TOPIC:eip.agent-events}
+  security:
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:http://localhost:8443/realms/platform}
+    # The JWT iss claim is the browser-facing Keycloak URL, which isn't
+    # reachable from inside Docker. Tell the validator to fetch JWKS from
+    # the internal Keycloak hostname; iss-claim verification still uses the
+    # original URL from the token.
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    # Static fallback for cold-start (before the admin-poll has cached the
+    # live tenant-realm list).
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}

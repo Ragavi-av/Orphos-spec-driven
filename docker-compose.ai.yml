@@ -1,0 +1,87 @@
+networks:
+  eip-net:
+    external: true
+
+volumes:
+  ollama_data:
+    name: eip-ollama-data
+  ollama_hi_data:
+    name: eip-ollama-hi-data
+
+# Route every container's stdout to Fluent Bit via the Docker fluentd
+# log driver. async=true so containers never block if Fluent Bit is down;
+# Docker dual-logging keeps `docker logs` working locally.
+x-fluentd-logging: &flog
+  driver: fluentd
+  options:
+    fluentd-address: "localhost:24224"
+    fluentd-async: "true"
+    tag: "{{.Name}}"
+
+services:
+  # Primary Ollama — hosts ONLY the chat models Granite 3.1 Dense 2B (default
+  # in-house, Apache-2.0) and Phi-3.5 Mini (MIT). OLLAMA_MAX_LOADED_MODELS=1
+  # forces it to keep at most one model resident: switching Granite<->Phi
+  # reloads (a brief cold-start), but the container can never hold two ~2GB
+  # models at once and get OOM-killed.
+  # Embeddings deliberately run on eip-ollama-hi, not here, so a chat model and
+  # the embedding model are never resident together in this container.
+  ollama:
+    # Pinned by digest (client 0.31.1 at pin time) so every machine that pulls
+    # this - including an offline-package build machine and an online-assisted
+    # install target pulling at a different point in time - gets the exact
+    # same bytes. Bump deliberately; don't drift back to :latest.
+    image: ollama/ollama@sha256:f1a705f2bd113fb8d15f85f7c217f0dc5f6bebda6b0cc42b82c3ad165ffcb9dc
+    container_name: eip-ollama
+    logging: *flog
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      # -1 keeps the model resident indefinitely. With MAX_LOADED_MODELS above,
+      # the resident set is bounded and fits mem_limit, so there is nothing to
+      # reclaim by unloading — and a 5m idle gap used to mean the next question
+      # paid a full cold model load. Set a duration (e.g. "5m") to restore
+      # eviction on a memory-constrained host.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
+    # 4.5 GB: Phi-3.5 Mini uses full multi-head attention (no GQA), so its KV
+    # cache is ~0.37 MB/token. At the pinned num_ctx=4096 (see nl-query config)
+    # that is ~1.5 GB of KV on top of the 2.2 GB weights — needs ~4 GB resident.
+    # Granite 3.1 Dense 2B (~1.6 GB) uses GQA and fits comfortably here too.
+    mem_limit: 4608m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # High-memory Ollama — hosts Qwen2.5 1.5B (~1.0 GB, Apache-2.0) AND the
+  # bge-m3 multilingual embedding model (~1.2 GB, MIT). Both stay resident
+  # together (OLLAMA_MAX_LOADED_MODELS=2), so embeddings never evict the chat
+  # model and there is no per-query reload thrash. bge-m3 replaced
+  # nomic-embed-text (0.27 GB) for Japanese support, so the limit is raised to
+  # keep KV-cache headroom for the larger weights.
+  # Reachable inside the network as http://eip-ollama-hi:11434; the host
+  # port differs (11435) only to avoid a clash with the primary container.
+  ollama-hi:
+    # Pinned by digest (client 0.31.1 at pin time) so every machine that pulls
+    # this - including an offline-package build machine and an online-assisted
+    # install target pulling at a different point in time - gets the exact
+    # same bytes. Bump deliberately; don't drift back to :latest.
+    image: ollama/ollama@sha256:f1a705f2bd113fb8d15f85f7c217f0dc5f6bebda6b0cc42b82c3ad165ffcb9dc
+    container_name: eip-ollama-hi
+    logging: *flog
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_hi_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "2"
+      # -1 keeps the model resident indefinitely. With MAX_LOADED_MODELS above,
+      # the resident set is bounded and fits mem_limit, so there is nothing to
+      # reclaim by unloading — and a 5m idle gap used to mean the next question
+      # paid a full cold model load. Set a duration (e.g. "5m") to restore
+      # eviction on a memory-constrained host.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
+    mem_limit: 4608m
+    networks: [eip-net]
+    restart: unless-stopped

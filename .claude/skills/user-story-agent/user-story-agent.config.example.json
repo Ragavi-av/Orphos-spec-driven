@@ -1,0 +1,31 @@
+{
+  "projectKey": "",
+  "storyIssueTypes": ["Story"],
+  "approvedStatuses": ["Approved"],
+
+  "authorizedApprovers": {
+    "accountIds": [],
+    "groups": ["story-approvers"]
+  },
+
+  "forbidSelfApproval": true,
+  "rejectIfEditedAfterApproval": true,
+  "protectedFields": ["summary", "description"],
+
+  "approverField": "",
+  "approverFieldMustMatchTransition": true,
+
+  "requireApprovedEpic": true,
+  "epicApprovedStatuses": ["Approved", "In Progress"],
+
+  "taskIssueType": "Sub-task",
+  "taskLinkMode": "parent",
+  "issueLinkType": "Relates",
+
+  "requireUnitTestsForCode": true,
+  "storyPointsField": "",
+  "defaultLabels": ["story-agent"],
+  "commentOnStory": true,
+  "maxTasksPerRun": 20,
+  "scanLimit": 50
+}

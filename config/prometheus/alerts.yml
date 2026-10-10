@@ -1,0 +1,61 @@
+groups:
+  - name: eip-service-availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable for 2 minutes."
+
+      - alert: HighJvmHeapPressure
+        expr: |
+          (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} JVM heap >90% for 5m"
+          description: "Investigate leaks or raise -Xmx; current value: {{ $value }}."
+
+      - alert: HttpServerErrorRateHigh
+        expr: |
+          sum by (job) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+          sum by (job) (rate(http_server_requests_seconds_count[5m]))
+            > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 5xx rate >5%"
+          description: "Sustained server-error rate above 5% for 5m. Check service logs."
+
+      - alert: SlowEndpoint
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, uri, le) (rate(http_server_requests_seconds_bucket[5m]))
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} {{ $labels.uri }} p95 >2s"
+          description: "p95 latency above 2s for 10m. Possible downstream issue."
+
+  - name: eip-rate-limit
+    interval: 30s
+    rules:
+      - alert: RateLimitFloodDetected
+        # If we see >100 rejections/min on any service, something is hammering us.
+        expr: |
+          sum by (job) (rate(http_server_requests_seconds_count{status="429"}[5m])) > 100/60
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} rate-limiting >100/min"
+          description: "Sustained 429s — possible credential-stuffing or runaway client."

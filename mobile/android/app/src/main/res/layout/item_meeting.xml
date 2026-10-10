@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/meeting_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="16dp"
+    android:orientation="horizontal">
+
+    <!-- Timeline column -->
+    <LinearLayout
+        android:layout_width="52dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="4dp">
+        <TextView
+            android:id="@+id/meeting_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            tools:text="10:00\nAM" />
+        <View
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/circle_icon"
+            android:backgroundTint="@color/primary" />
+    </LinearLayout>
+
+    <!-- Meeting card -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="@drawable/card_bg"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/meeting_title"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium" android:textColor="@color/text"
+                    android:textSize="16sp" android:textStyle="bold" tools:text="Board Meeting" />
+                <TextView
+                    android:id="@+id/meeting_sub"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" android:textColor="@color/text_muted"
+                    android:textSize="12sp" tools:text="Conference Room A" />
+            </LinearLayout>
+            <View android:layout_width="24dp" android:layout_height="24dp"
+                android:background="@drawable/circle_white" android:backgroundTint="#5AC7D0" />
+            <View android:layout_width="24dp" android:layout_height="24dp" android:layout_marginStart="-7dp"
+                android:background="@drawable/circle_white" android:backgroundTint="#8AA0E0" />
+            <View android:layout_width="24dp" android:layout_height="24dp" android:layout_marginStart="-7dp"
+                android:background="@drawable/circle_white" android:backgroundTint="#B08BFF" />
+            <TextView
+                android:id="@+id/meeting_more"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="6dp" android:textColor="@color/text_secondary"
+                android:textSize="12sp" tools:text="+5" />
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="6dp"
+                android:src="@drawable/ic_arrow_right" app:tint="@color/text_muted" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/meeting_download"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp" android:layout_height="46dp" android:layout_weight="1"
+                android:layout_marginEnd="6dp" android:text="@string/meeting_download" android:textSize="13sp"
+                android:textColor="@color/text_secondary"
+                app:cornerRadius="12dp" app:icon="@drawable/ic_download" app:iconSize="16dp"
+                app:iconTint="@color/text_secondary" app:strokeColor="@color/border" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/meeting_prepare"
+                android:layout_width="0dp" android:layout_height="46dp" android:layout_weight="1"
+                android:layout_marginStart="6dp" android:text="@string/meeting_prepare" android:textSize="13sp"
+                app:backgroundTint="@color/primary" app:cornerRadius="12dp"
+                app:icon="@drawable/ic_arrow_right" app:iconGravity="textEnd" app:iconSize="16dp"
+                app:iconTint="@color/on_primary" />
+        </LinearLayout>
+
+        <!-- kept for compatibility; hidden -->
+        <LinearLayout android:id="@+id/meeting_points" android:layout_width="0dp"
+            android:layout_height="0dp" android:orientation="vertical" android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================
+         ORPHOS mobile — v2 design system (Figma "ORPHOS-1").
+         A single premium dark aesthetic: near-black navy ground,
+         floating cards, electric-blue primary, semantic accents,
+         and glowing purple AI branding.
+         ============================================================ -->
+
+    <!-- Core surfaces -->
+    <color name="bg">#060A14</color>            <!-- app background (near-black navy) -->
+    <color name="bg_grad_top">#0A1024</color>   <!-- subtle top gradient -->
+    <color name="surface">#0F1626</color>       <!-- card -->
+    <color name="surface_2">#151F35</color>     <!-- inner / elevated -->
+    <color name="surface_3">#1B2742</color>     <!-- pressed / chips base -->
+    <color name="border">#212D49</color>        <!-- hairline card border -->
+    <color name="border_soft">#18233D</color>
+
+    <!-- Text -->
+    <color name="text">#F5F8FF</color>
+    <color name="text_secondary">#94A2C2</color>
+    <color name="text_muted">#63708D</color>
+
+    <!-- Primary / brand -->
+    <color name="primary">#2F6BFF</color>
+    <color name="primary_pressed">#2557D6</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="link">#4F8CFF</color>
+    <color name="brand_purple">#9B6BFF</color>
+    <color name="brand_purple_2">#C86BFF</color>
+    <color name="brand_glow">#7A5CFF</color>
+
+    <!-- Semantic -->
+    <color name="green">#2FD08A</color>
+    <color name="green_deep">#12351F</color>
+    <color name="red">#F0524B</color>
+    <color name="red_deep">#361417</color>
+    <color name="orange">#F5A524</color>
+    <color name="orange_deep">#2E2110</color>
+    <color name="purple">#A98BFF</color>
+    <color name="purple_deep">#1E1638</color>
+    <!-- Scribble pen palette extras -->
+    <color name="scribble_yellow">#FFD54F</color>
+    <color name="scribble_pink">#FF6BB5</color>
+    <color name="blue_deep">#10203F</color>
+
+    <!-- Chip / tag text + fills -->
+    <color name="chip_revenue_fg">#F5A524</color>
+    <color name="chip_revenue_bg">#2A1E0C</color>
+    <color name="chip_ops_fg">#4F8CFF</color>
+    <color name="chip_ops_bg">#101F3C</color>
+    <color name="chip_people_fg">#B08BFF</color>
+    <color name="chip_people_bg">#1D1638</color>
+    <!-- Icon-circle washes: the accent colours at 20% alpha, so a glyph reads on a dark card. -->
+    <color name="wash_blue">#334F8CFF</color>
+    <color name="wash_green">#332FD08A</color>
+    <color name="wash_purple">#33A98BFF</color>
+    <color name="wash_orange">#33F5A524</color>
+    <color name="chip_urgent_fg">#FF6B6B</color>
+    <color name="chip_urgent_bg">#2E1416</color>
+    <color name="chip_important_fg">#F5A524</color>
+    <color name="chip_important_bg">#2A1E0C</color>
+    <color name="chip_future_fg">#7FA0D8</color>
+    <color name="chip_future_bg">#141E33</color>
+    <color name="chip_done_fg">#2FD08A</color>
+    <color name="chip_done_bg">#0E2A1C</color>
+
+    <!-- ===== Material attribute mapping (single dark aesthetic; _light == _dark) ===== -->
+    <color name="md_primary_light">#2F6BFF</color>
+    <color name="md_on_primary_light">#FFFFFF</color>
+    <color name="md_primary_container_light">#14213F</color>
+    <color name="md_on_primary_container_light">#CFE0FF</color>
+    <color name="md_secondary_container_light">#151F35</color>
+    <color name="md_on_secondary_container_light">#AAC0EC</color>
+    <color name="md_background_light">#060A14</color>
+    <color name="md_surface_light">#0F1626</color>
+    <color name="md_on_surface_light">#F5F8FF</color>
+    <color name="md_surface_variant_light">#151F35</color>
+    <color name="md_on_surface_variant_light">#94A2C2</color>
+    <color name="md_outline_variant_light">#212D49</color>
+
+    <color name="md_primary_dark">#2F6BFF</color>
+    <color name="md_on_primary_dark">#FFFFFF</color>
+    <color name="md_primary_container_dark">#14213F</color>
+    <color name="md_on_primary_container_dark">#CFE0FF</color>
+    <color name="md_secondary_container_dark">#151F35</color>
+    <color name="md_on_secondary_container_dark">#AAC0EC</color>
+    <color name="md_background_dark">#060A14</color>
+    <color name="md_surface_dark">#0F1626</color>
+    <color name="md_on_surface_dark">#F5F8FF</color>
+    <color name="md_surface_variant_dark">#151F35</color>
+    <color name="md_on_surface_variant_dark">#94A2C2</color>
+    <color name="md_outline_variant_dark">#212D49</color>
+
+    <!-- Home "Busy / Free" status pill (Figma "Orphos Mobile") -->
+    <color name="status_pill_bg">#080E24</color>
+    <color name="status_pill_border">#101835</color>
+    <color name="status_busy">#EF4444</color>
+    <color name="status_free">#22C55E</color>
+    <color name="status_label">#F8FAFC</color>
+    <color name="status_chevron">#78829C</color>
+
+    <!-- Home "Today's Task Progress" card (Figma "Orphos Mobile") -->
+    <color name="progress_card_bg">#050B1E</color>
+    <color name="progress_card_border">#101835</color>
+    <color name="progress_accent">#22C55E</color>
+    <color name="progress_track">#121B35</color>
+    <color name="progress_label">#9B9DA5</color>
+    <color name="progress_link">#3B82F6</color>
+
+    <!-- AI accent (recommendation / anomaly cards) -->
+    <color name="ai_purple">#C084FC</color>
+    <color name="ai_blue">#60A5FA</color>
+
+    <!-- CEO Metrics (company view) -->
+    <color name="metric_good">#34D399</color>
+    <color name="metric_info">#8FB0FF</color>
+    <color name="metric_ai">#C4A6FF</color>
+    <color name="metric_ai_title">#F1ECFF</color>
+    <color name="metric_ai_body">#CFC4EE</color>
+    <color name="metric_ai_chip">#DCD0FF</color>
+    <color name="metric_ai_button">#8B5CF6</color>
+    <color name="metric_ai_outline">#5A3F9E</color>
+    <color name="metric_chip_bg">#15244A</color>
+    <color name="metric_chip_border">#1F3264</color>
+    <color name="metric_divider">#1A2440</color>
+    <color name="metric_marker">#4A5675</color>
+    <color name="metric_label">#7D89A6</color>
+
+    <!-- legacy references kept so older layouts still resolve -->
+    <color name="orphos_navy">#060A14</color>
+    <color name="fin_tile">#151F35</color>
+    <color name="fin_tile_on">#F5F8FF</color>
+</resources>

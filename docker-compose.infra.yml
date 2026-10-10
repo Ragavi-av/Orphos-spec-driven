@@ -1,0 +1,405 @@
+networks:
+  eip-net:
+    driver: bridge
+    name: eip-net          # pin exact name so app stack can find it as external
+
+volumes:
+  postgres_data:
+  # Infisical's own Postgres data (separate from the app postgres_data above).
+  infisical_db_data:
+  # Holds the bootstrap-generated project-id / client-id / client-secret for the
+  # eip-app machine identity. Written by infisical-seed; mounted read-only by
+  # every app service (which read them via secrets.*-file). Must be wiped
+  # together with infisical_db_data (a `docker compose down -v` does both) so a
+  # re-bootstrap stays consistent.
+  infisical_svc:
+  # External DB connections registry (connections.json). Seeded by
+  # connections-seed with a "bundled ArcadeDB" connection and no assignments, so
+  # default behaviour is unchanged. Mounted read-write into platform-core and
+  # read-only into every other ArcadeDB service.
+  eip_connections:
+  kafka_data:
+  victorialogs_data:
+
+# Route every container's stdout to Fluent Bit via the Docker fluentd
+# log driver. async=true so containers never block if Fluent Bit is down;
+# Docker dual-logging keeps `docker logs` working locally.
+x-fluentd-logging: &flog
+  driver: fluentd
+  options:
+    fluentd-address: "localhost:24224"
+    fluentd-async: "true"
+    tag: "{{.Name}}"
+
+services:
+  traefik:
+    image: traefik:v3
+    container_name: eip-traefik
+    logging: *flog
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 64m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: eip-postgres
+    logging: *flog
+    # Bundled Postgres (Keycloak's DB) is gated behind the "bundled-postgres"
+    # profile (set by start.sh from EIP_BUNDLED_POSTGRES, default true) —
+    # INDEPENDENT of the bundled ArcadeDB. To drop it, set EIP_BUNDLED_POSTGRES
+    # =false and point Keycloak at an external Postgres via KC_DB_URL/USERNAME/
+    # PASSWORD. (Infisical uses its own eip-infisical-db; override with
+    # INFISICAL_DB_CONNECTION_URI.)
+    profiles: ["bundled-postgres"]
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: postgres
+      # Bundled Postgres now has its OWN password. Falls back to ARCADEDB_PASSWORD
+      # when POSTGRES_PASSWORD is unset so pre-separation installs (whose volume
+      # was initialized with ARCADEDB_PASSWORD) keep working unchanged.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${ARCADEDB_PASSWORD}}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # On first init, also create the "infisical" database so Keycloak and
+      # Infisical can share this one container (wizard "share Keycloak's Postgres").
+      - ./config/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: eip-keycloak
+    logging: *flog
+    environment:
+      KC_DB: postgres
+      # Defaults point at the bundled Postgres (profile "bundled-db"). To run
+      # Keycloak against an EXTERNAL Postgres and drop the bundled container,
+      # set EIP_BUNDLED_DB=false and override these three in .env — e.g.
+      #   KC_DB_URL=jdbc:postgresql://my-host:5432/keycloak
+      #   KC_DB_USERNAME=...   KC_DB_PASSWORD=...
+      # (Keycloak reads the connection registry NOT at all — it is infra, so its
+      # DB is configured here, not via the DB Connections admin screen.)
+      KC_DB_URL: ${KC_DB_URL:-jdbc:postgresql://postgres:5432/keycloak}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-postgres}
+      # External override → bundled Postgres password → legacy ARCADEDB_PASSWORD.
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-${POSTGRES_PASSWORD:-${ARCADEDB_PASSWORD}}}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # Pin the external hostname so all issued JWTs carry the same issuer URL
+      # regardless of which internal hostname a service uses to contact Keycloak.
+      KC_HOSTNAME_URL: http://${EIP_PUBLIC_HOST:-localhost}:8443
+      KC_HOSTNAME_ADMIN_URL: http://${EIP_PUBLIC_HOST:-localhost}:8443
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      # ── SameSite=Lax on auth-session cookies ──────────────────────────
+      # Over HTTP (dev) browsers drop SameSite=None cookies that lack the
+      # Secure flag.  When Azure redirects back to the broker endpoint the
+      # AUTH_SESSION_ID cookie would otherwise be silently lost (default
+      # is SameSite=Strict, which browsers do NOT send on cross-site
+      # top-level navigations) → "Cookie not found" error from Keycloak.
+      # SameSite=Lax IS sent on top-level GET navigations (which external
+      # IDP redirects are), fixing the cross-site broker callback flow.
+      #
+      # Quarkus env-var encoding for keys that contain literal underscores:
+      # the underlying property is
+      #   quarkus.http.same-site-cookie."AUTH_SESSION_ID".value=Lax
+      # SmallRye Config maps a quoted key by replacing its surrounding
+      # quotes with double underscores. So the env var brackets the key
+      # name with __ on both sides — NOT inside the key.
+      QUARKUS_HTTP_SAME_SITE_COOKIE__AUTH_SESSION_ID__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__AUTH_SESSION_ID_LEGACY__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KC_RESTART__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KC_AUTH_STATE__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_IDENTITY__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_IDENTITY_LEGACY__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_SESSION__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_SESSION_LEGACY__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_REMEMBER_ME__VALUE: Lax
+      QUARKUS_HTTP_SAME_SITE_COOKIE__KEYCLOAK_LOCALE__VALUE: Lax
+    # --import-realm loads any *.json under /opt/keycloak/data/import on startup.
+    # The demo tenant realm is NO LONGER imported here — it is owned by
+    # platform-core's DemoTenantBootstrap, which creates it from the realm
+    # template under the name given by KEYCLOAK_REALM (default 'eip') and seeds
+    # its Azure SSO from the AZURE_* env. Only the platform realm is imported.
+    command: start-dev --import-realm
+    volumes:
+      # Separate "platform" realm — holds the cross-tenant platform_admin role
+      # and the bootstrap platform admin user (pa). Carries no secrets, so the
+      # committed file is mounted directly.
+      - ./config/keycloak/platform-realm.json:/opt/keycloak/data/import/platform-realm.json:ro
+    ports:
+      - "8443:8080"
+    mem_limit: 1536m
+    networks: [eip-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+        # Optional so the project stays valid when the bundled Postgres is
+        # disabled (EIP_BUNDLED_DB=false → no "bundled-db" profile). With an
+        # external KC_DB_URL there is no local postgres to wait on; Keycloak's
+        # own restart policy + healthcheck cover ordering against the remote DB.
+        required: false
+    restart: unless-stopped
+    healthcheck:
+      # Keycloak 24's dedicated /health endpoint lives on the management
+      # interface (port 9000) which we don't expose. Probe the master realm's
+      # OIDC discovery instead — returns 200 only after the realm cache + DB
+      # schema are ready. The current image dropped curl; use the JVM-based
+      # probe that's always available inside a Keycloak container.
+      test:
+        - "CMD-SHELL"
+        - "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /realms/master/.well-known/openid-configuration HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q '200 OK'"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # ── Secrets backend: Infisical (MIT) ─────────────────────────────────
+  # Replaces the former OpenBao (MPL-2.0) stack. Infisical needs its own
+  # Postgres + Redis. On first boot infisical-seed bootstraps the instance,
+  # creates the "eip" project + an "eip-app" Universal-Auth machine identity,
+  # persists that identity's project-id / client-id / client-secret to the
+  # infisical_svc volume (app services read them read-only via secrets.*-file),
+  # and seeds the dev KV secrets every service reads at startup.
+  infisical-db:
+    image: postgres:16-alpine
+    container_name: eip-infisical-db
+    logging: *flog
+    # Bundled Infisical Postgres — independent of Keycloak's. Gated behind
+    # "bundled-infisical-db" (set by start.sh from EIP_BUNDLED_INFISICAL_DB,
+    # default true). Set it false + INFISICAL_DB_CONNECTION_URI to run Infisical
+    # on an external Postgres with no local container.
+    profiles: ["bundled-infisical-db"]
+    environment:
+      POSTGRES_USER: infisical
+      # No fallback ON PURPOSE: a committed default here would silently apply
+      # whenever .env misses/blanks the var (the secret-store root-of-trust
+      # compromise class). Compose aborts with this message instead.
+      POSTGRES_PASSWORD: ${INFISICAL_DB_PASSWORD:?set INFISICAL_DB_PASSWORD in .env}
+      POSTGRES_DB: infisical
+    volumes:
+      - infisical_db_data:/var/lib/postgresql/data
+    networks: [eip-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  infisical-redis:
+    # Valkey (BSD-3-Clause, Linux Foundation) instead of redis:7-alpine —
+    # Redis 7.4+ moved to RSALv2/SSPLv1 (source-available, not OSI open
+    # source). Valkey is the community fork of Redis 7.2.4: wire-compatible
+    # (RESP + Lua), so Infisical's BullMQ queue and REDIS_URL work unchanged.
+    image: valkey/valkey:8-alpine
+    container_name: eip-infisical-redis
+    logging: *flog
+    networks: [eip-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  infisical:
+    # Pinned by digest for reproducibility (the latest-postgres tag carries no
+    # version label). Bump deliberately to a newer Infisical release as needed.
+    image: infisical/infisical:latest-postgres@sha256:36438985877fb5ab99c76ee1a9c73611e44d8518b44a77304b5d4c05451f8c62
+    container_name: eip-infisical
+    logging: *flog
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+        # Optional so an external Infisical Postgres (bundled-infisical-db profile
+        # off + INFISICAL_DB_CONNECTION_URI set) is valid — no local db to wait on.
+        required: false
+      infisical-redis:
+        condition: service_healthy
+    environment:
+      # Master keys — REQUIRED, no committed fallback. Infisical is the root of
+      # trust (every DB password, internal-service token, AI keys); a baked-in
+      # default that silently applies when .env misses these means anyone with
+      # repo access can decrypt the whole store. Compose aborts loudly instead.
+      # NOTE: changing ENCRYPTION_KEY after first boot makes existing encrypted
+      # data unreadable — rotation requires wiping infisical_db_data +
+      # infisical_svc together and re-seeding.
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?set INFISICAL_ENCRYPTION_KEY in .env (32 hex chars, e.g. openssl rand -hex 16)}
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?set INFISICAL_AUTH_SECRET in .env (e.g. openssl rand -base64 32)}
+      # Infisical uses its OWN dedicated Postgres (eip-infisical-db), separate
+      # from the app/Keycloak bundled Postgres and always required. Override with
+      # INFISICAL_DB_CONNECTION_URI in .env to move it to an external Postgres.
+      DB_CONNECTION_URI: ${INFISICAL_DB_CONNECTION_URI:-postgres://infisical:${INFISICAL_DB_PASSWORD:?set INFISICAL_DB_PASSWORD in .env}@eip-infisical-db:5432/infisical}
+      REDIS_URL: redis://eip-infisical-redis:6379
+      SITE_URL: ${INFISICAL_SITE_URL:-http://localhost:8222}
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "8222:8080"
+    networks: [eip-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/status || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  # One-shot bootstrap + dev secret seeder (replaces openbao-init/unseal/seed).
+  # Runs as root so it can write the generated identity files to infisical_svc.
+  # Re-runs are idempotent: svc files present → skip bootstrap, re-seed only.
+  # The infisical DB volume and infisical_svc must be wiped together (a
+  # `docker compose down -v` does both) to force a clean re-bootstrap.
+  infisical-seed:
+    image: curlimages/curl:8.10.1
+    container_name: eip-infisical-seed
+    logging: *flog
+    user: "0:0"
+    depends_on:
+      infisical:
+        condition: service_healthy
+    volumes:
+      - infisical_svc:/infisical/svc
+      - ./config/infisical:/seed:ro
+    environment:
+      INFISICAL_ADDR: http://eip-infisical:8080
+      INFISICAL_ADMIN_EMAIL: ${INFISICAL_ADMIN_EMAIL:-admin@orphos.local}
+      # Required — no committed default (see the infisical service's master-key note).
+      INFISICAL_ADMIN_PASSWORD: "${INFISICAL_ADMIN_PASSWORD:?set INFISICAL_ADMIN_PASSWORD in .env}"
+      INFISICAL_ORG_NAME: ${INFISICAL_ORG_NAME:-orphos}
+      INFISICAL_ENV: prod
+      # Secret VALUES come from the developer's local .env — never baked in.
+      ARCADEDB_PASSWORD: ${ARCADEDB_PASSWORD}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      FUSEKI_ADMIN_PASSWORD: ${FUSEKI_ADMIN_PASSWORD}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      EIP_INTERNAL_SERVICE_TOKEN: ${EIP_INTERNAL_SERVICE_TOKEN:-}
+    entrypoint: ["sh", "/seed/seed.sh"]
+    networks: [eip-net]
+    restart: "no"
+
+  # Seeds the DB connections registry with a "bundled ArcadeDB" connection and
+  # no assignments (so default behaviour is byte-identical). Idempotent: it only
+  # writes connections.json when absent, so operator edits from the DB
+  # Connections admin screen survive restarts. Runs as root to write the volume.
+  connections-seed:
+    image: busybox:1.36
+    container_name: eip-connections-seed
+    logging: *flog
+    user: "0:0"
+    volumes:
+      - eip_connections:/run/eip
+      - ./config/connections:/seed:ro
+    command:
+      - "sh"
+      - "-c"
+      - "if [ ! -f /run/eip/connections.json ]; then cp /seed/connections.default.json /run/eip/connections.json; echo 'seeded connections.json'; else echo 'connections.json exists — keeping operator edits'; fi; chmod 644 /run/eip/connections.json"
+    networks: [eip-net]
+    restart: "no"
+
+  # ── Observability: traces (Jaeger), logs (VictoriaLogs + Fluent Bit) ──
+  # Metrics live with the app stack in docker-compose.app.yml (Prometheus
+  # is colocated with the services it scrapes); traces + logs live here
+  # in infra because they're shared, long-running infra components.
+  # Jaeger (Apache-2.0, CNCF Graduated) — traces backend + UI. Replaces
+  # grafana/tempo (AGPL-3.0). Ingests OTLP natively at :4318, so services emit
+  # traces unchanged (see TracingDefaultsEnvironmentPostProcessor → eip-jaeger).
+  # Its own UI at :16686 replaces trace browsing in Grafana. All-in-one keeps
+  # spans in memory — fine for a dev stack, so no persistent volume needed.
+  jaeger:
+    profiles: [full]
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: eip-jaeger
+    logging: *flog
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP — services push traces here
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # VictoriaLogs (Apache-2.0) — log store + UI + LogsQL HTTP API. Replaces
+  # grafana/loki (AGPL-3.0). Lightweight single binary; AdminLogsController
+  # queries it at /select/logsql/query. Built-in UI at :9428/select/vmui.
+  victoria-logs:
+    profiles: [full]
+    image: victoriametrics/victoria-logs:v1.3.2-victorialogs
+    container_name: eip-victoria-logs
+    command: ["--storageDataPath=/victoria-logs-data", "--httpListenAddr=:9428"]
+    volumes:
+      - victorialogs_data:/victoria-logs-data
+    ports:
+      - "9428:9428"
+    mem_limit: 256m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # Fluent Bit (Apache-2.0, CNCF Graduated) — log collector. Replaces
+  # grafana/promtail (AGPL-3.0). Receives every container's stdout via the
+  # Docker `fluentd` log driver (forward input :24224), normalizes the
+  # container name, and ships to VictoriaLogs. Port 24224 is published so the
+  # Docker daemon can reach it as the fluentd-address (see x-fluentd-logging).
+  fluent-bit:
+    profiles: [full]
+    image: fluent/fluent-bit:3.1.9
+    container_name: eip-fluent-bit
+    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
+    volumes:
+      - ./config/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+    ports:
+      - "24224:24224"
+    depends_on:
+      victoria-logs:
+        condition: service_started
+    mem_limit: 128m
+    networks: [eip-net]
+    restart: unless-stopped
+
+  # Official Apache Kafka image (Apache-2.0). Replaces confluentinc/cp-kafka,
+  # which ships under the source-available Confluent Community License (restricts
+  # offering it as a competing managed service). Same Kafka 3.7 engine and wire
+  # protocol, so clients (only okg-ingest-service, bootstrap kafka:9092) are
+  # unchanged — single-node KRaft, no ZooKeeper. Two env differences vs the
+  # Confluent image: the security-protocol map must be explicit, and the default
+  # log dir differs so KAFKA_LOG_DIRS is pinned to the mounted volume.
+  kafka:
+    profiles: [full]
+    image: apache/kafka:3.7.0
+    container_name: eip-kafka
+    logging: *flog
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: eip-kafka-cluster-01
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    mem_limit: 768m
+    networks: [eip-net]
+    restart: unless-stopped

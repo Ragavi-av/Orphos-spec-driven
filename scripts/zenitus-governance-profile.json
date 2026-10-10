@@ -1,0 +1,413 @@
+{
+  "profileType": "governance",
+  "_comment": [
+    "Graph mirror of the fixed vocabulary declared in ontology/eip-governance.owl.",
+    "Loaded by scripts/ontology/LoadPersonaDomainProfile.java into the tenant's ArcadeDB.",
+    "",
+    "Why it is duplicated at all: okg-reasoning-service reads the OWL and derives",
+    "closures into Fuseki, but the request-path services (nl-query, widgets,",
+    "graph-proxy) read ArcadeDB. RBAC has to be enforceable on the request path, so",
+    "the vocabulary needs a graph copy - exactly the arrangement EnterpriseSchemaBootstrap",
+    "already uses to mirror eip-enterprise.owl. Keep the two in step: every externalId",
+    "here is the local name of the corresponding OWL individual, lower-kebab-cased.",
+    "",
+    "Classification is TYPE-level (one GovClassification row per graph type), which is",
+    "the faithful mirror of the class-level owl:hasValue restrictions. See the loader's",
+    "header for why per-row edges would be wrong."
+  ],
+
+  "sensitivityLevels": [
+    { "externalId": "sen-public",       "name": "Public",       "sensitivityRank": 0, "description": "Publishable outside the company." },
+    { "externalId": "sen-internal",     "name": "Internal",     "sensitivityRank": 1, "description": "Any employee may see it." },
+    { "externalId": "sen-confidential", "name": "Confidential", "sensitivityRank": 2, "description": "Management only." },
+    { "externalId": "sen-restricted",   "name": "Restricted",   "sensitivityRank": 3, "description": "Held by NO persona. Exists so individual compensation, individual performance ratings and person-naming audit findings can be recognised and refused rather than served." }
+  ],
+
+  "dataDomains": [
+    { "externalId": "dom-enterprise",  "name": "Enterprise",           "description": "Company, mission, org structure, branches, clients, engagements." },
+
+    { "externalId": "dom-finance",     "name": "Finance",              "description": "Budgets, general ledger, cash flow, tax." },
+    { "externalId": "dom-budget",      "name": "Budget",               "parentDomainExternalId": "dom-finance" },
+    { "externalId": "dom-treasury",    "name": "Treasury",             "parentDomainExternalId": "dom-finance", "description": "Cash flow, liquidity, receivables and payables." },
+    { "externalId": "dom-gl",          "name": "General Ledger",       "parentDomainExternalId": "dom-finance" },
+
+    { "externalId": "dom-hr",          "name": "Human Resources",      "description": "People, positions, headcount, talent." },
+    { "externalId": "dom-headcount",   "name": "Headcount",            "parentDomainExternalId": "dom-hr" },
+    { "externalId": "dom-payroll",     "name": "Payroll",              "parentDomainExternalId": "dom-hr", "description": "Compensation cost. Aggregate only by design." },
+    { "externalId": "dom-talent",      "name": "Talent",               "parentDomainExternalId": "dom-hr", "description": "Skills, training, recruitment, attrition." },
+
+    { "externalId": "dom-it",          "name": "Information Technology", "description": "Systems, incidents, SLAs, assets, security." },
+    { "externalId": "dom-it-ops",      "name": "IT Operations",        "parentDomainExternalId": "dom-it" },
+    { "externalId": "dom-it-assets",   "name": "IT Assets",            "parentDomainExternalId": "dom-it" },
+    { "externalId": "dom-it-security", "name": "IT Security",          "parentDomainExternalId": "dom-it" },
+    { "externalId": "dom-it-spend",    "name": "IT Spend",             "parentDomainExternalIds": ["dom-it", "dom-finance"], "description": "Deliberately a child of BOTH IT and Finance: the one slice of the ledger a CTO must see, reachable through the IT grant without opening the whole ledger." },
+
+    { "externalId": "dom-commercial",  "name": "Commercial",           "description": "Pipeline, contracts, orders, revenue by client." },
+    { "externalId": "dom-pipeline",    "name": "Pipeline",             "parentDomainExternalId": "dom-commercial" },
+    { "externalId": "dom-contracts",   "name": "Contracts",            "parentDomainExternalId": "dom-commercial" },
+
+    { "externalId": "dom-strategy",    "name": "Strategy",             "description": "Objectives, key results, initiatives, portfolio, decisions." },
+    { "externalId": "dom-portfolio",   "name": "Portfolio",            "parentDomainExternalId": "dom-strategy", "description": "Programmes, projects, milestones and their RAG status." },
+
+    { "externalId": "dom-risk",        "name": "Risk and Compliance",  "description": "Risk register, controls, compliance obligations, audits." },
+
+    { "externalId": "dom-governance",  "name": "Platform Governance",  "description": "The platform's own configuration. NOT a parent of the business domains - administering the platform does not confer the right to read the company's numbers." }
+  ],
+
+  "personas": [
+    {
+      "externalId": "per-guest", "name": "Guest", "personaLabel": "Guest", "roleKey": "guest",
+      "roleProvisioned": true, "displayOrder": 90,
+      "maxSensitivityExternalId": "sen-public",
+      "description": "Signed in but not yet granted anything."
+    },
+    {
+      "externalId": "per-viewer", "name": "Viewer", "personaLabel": "Viewer", "roleKey": "viewer",
+      "roleProvisioned": true, "displayOrder": 80,
+      "inheritsFromExternalId": "per-guest",
+      "maxSensitivityExternalId": "sen-internal",
+      "canAccessDomainExternalIds": ["dom-enterprise"]
+    },
+    {
+      "externalId": "per-executive", "name": "Executive", "personaLabel": "Executive", "roleKey": "executive",
+      "roleProvisioned": true, "displayOrder": 50,
+      "inheritsFromExternalId": "per-viewer",
+      "maxSensitivityExternalId": "sen-internal",
+      "canAccessDomainExternalIds": ["dom-strategy"],
+      "watchesMetricExternalIds": ["met-pending-decisions"],
+      "embodiedByExecutiveExternalId": "exec-advisor",
+      "description": "Generic senior leader; the floor every C-level persona builds on."
+    },
+    {
+      "externalId": "per-ceo", "name": "CEO", "personaLabel": "CEO", "roleKey": "ceo",
+      "roleProvisioned": true, "displayOrder": 10,
+      "inheritsFromExternalId": "per-executive",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-finance", "dom-commercial", "dom-risk"],
+      "watchesMetricExternalIds": ["met-projects-at-risk", "met-pending-decisions", "met-budget-variance", "met-net-cashflow", "met-revenue-arr", "met-pipeline-value", "met-risk-exposure", "met-objective-progress"],
+      "accountableForExternalIds": ["met-pending-decisions"],
+      "_watchNote": "Executive and finance focus: strategy (pending-decisions, objective-progress), portfolio (projects-at-risk), finance (budget-variance), treasury (net-cashflow), commercial (revenue-arr, pipeline-value) and risk (risk-exposure). IT and HR detail belong to the CTO and CHRO; critical items from those areas still reach the CEO through the escalation rule in PersonaDomainPolicy.",
+      "embodiedByExecutiveExternalId": "exec-dir-prodtech",
+      "description": "Executive, finance, commercial and risk domains at Confidential - not technology or people detail, not Restricted and not Platform Governance. Mirrors the CEO scope in PersonaDomainPolicy. Embodied by the primary company leader - Zenitus is director-led with no single CEO title, so this mapping is a judgement call to confirm."
+    },
+    {
+      "externalId": "per-cfo", "name": "CFO", "personaLabel": "CFO", "roleKey": "cfo",
+      "roleProvisioned": true, "displayOrder": 20,
+      "inheritsFromExternalId": "per-executive",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-finance", "dom-payroll", "dom-commercial", "dom-risk"],
+      "watchesMetricExternalIds": ["met-it-budget", "met-budget-variance", "met-payroll", "met-net-cashflow", "met-cash-inflow", "met-cash-outflow", "met-revenue-arr", "met-risk-exposure"],
+      "accountableForExternalIds": ["met-net-cashflow", "met-cash-inflow", "met-cash-outflow", "met-budget-variance", "met-payroll"],
+      "description": "Whole finance tree, commercial, risk, plus Payroll specifically without the rest of HR. No embodiedBy: no CFO exists among this tenant's loaded executives, so OWN_* scopes fall back to tenant-wide for this persona."
+    },
+    {
+      "externalId": "per-cto", "name": "CTO", "personaLabel": "CTO", "roleKey": "cto",
+      "roleProvisioned": true, "displayOrder": 30,
+      "inheritsFromExternalId": "per-executive",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-it", "dom-portfolio"],
+      "watchesMetricExternalIds": ["met-uptime", "met-it-budget", "met-incidents", "met-projects-at-risk", "met-alerts", "met-sla-health", "met-system-health"],
+      "accountableForExternalIds": ["met-uptime", "met-sla-health", "met-system-health", "met-incidents", "met-alerts", "met-it-budget"],
+      "embodiedByExecutiveExternalId": "exec-dir-projtech",
+      "description": "Whole IT tree including IT Spend (a shared child of Finance) plus the delivery portfolio. No general ledger, payroll or pipeline."
+    },
+    {
+      "externalId": "per-coo", "name": "COO", "personaLabel": "COO", "roleKey": "coo",
+      "roleProvisioned": false, "displayOrder": 40,
+      "inheritsFromExternalId": "per-executive",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-it-ops", "dom-commercial", "dom-portfolio", "dom-headcount"],
+      "watchesMetricExternalIds": ["met-uptime", "met-incidents", "met-projects-at-risk", "met-sla-health", "met-headcount", "met-pipeline-value"],
+      "accountableForExternalIds": ["met-projects-at-risk"],
+      "embodiedByExecutiveExternalId": "exec-dir-salesops",
+      "description": "roleProvisioned=false: 'coo' is not in KeycloakProvisioningClient.REALM_ROLES, so no JWT can carry this persona yet."
+    },
+    {
+      "externalId": "per-chro", "name": "CHRO", "personaLabel": "CHRO", "roleKey": "chro",
+      "roleProvisioned": false, "displayOrder": 45,
+      "inheritsFromExternalId": "per-executive",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-hr"],
+      "watchesMetricExternalIds": ["met-headcount", "met-headcount-dept", "met-payroll", "met-attrition"],
+      "accountableForExternalIds": ["met-headcount", "met-headcount-dept"],
+      "description": "Whole HR tree at Confidential. Individual compensation still unreachable - that is Restricted and no persona holds it. roleProvisioned=false."
+    },
+    {
+      "externalId": "per-admin", "name": "Admin", "personaLabel": "Admin", "roleKey": "admin",
+      "roleProvisioned": true, "displayOrder": 5,
+      "inheritsFromExternalId": "per-viewer",
+      "maxSensitivityExternalId": "sen-confidential",
+      "canAccessDomainExternalIds": ["dom-governance"],
+      "hasCapabilityExternalIds": ["cap-auth-authz", "cap-data", "cap-ai", "cap-documents", "cap-comms", "cap-appearance"],
+      "description": "Configures the platform but holds NO business domain beyond Viewer. TIGHTENING of current behaviour: AccessPolicy.roleDefault() returns allow for every group when role == admin."
+    }
+  ],
+
+  "capabilities": [
+    { "externalId": "cap-auth-authz", "name": "Authentication & Authorization", "resourceKey": "auth-authz", "groupKey": "auth-authz" },
+    { "externalId": "cap-auth",              "name": "SSO Configuration",  "resourceKey": "auth",              "groupKey": "auth-authz", "groupExternalId": "cap-auth-authz" },
+    { "externalId": "cap-users",             "name": "User Management",    "resourceKey": "users",             "groupKey": "auth-authz", "groupExternalId": "cap-auth-authz" },
+    { "externalId": "cap-access-control",    "name": "Access Control",     "resourceKey": "access-control",    "groupKey": "auth-authz", "groupExternalId": "cap-auth-authz" },
+
+    { "externalId": "cap-data", "name": "Data", "resourceKey": "data", "groupKey": "data" },
+    { "externalId": "cap-onboarding",        "name": "Onboarding",         "resourceKey": "onboarding",        "groupKey": "data", "groupExternalId": "cap-data" },
+    { "externalId": "cap-data-sources",      "name": "Data Sources",       "resourceKey": "data-sources",      "groupKey": "data", "groupExternalId": "cap-data" },
+    { "externalId": "cap-data-mapping",      "name": "Data Mapping",       "resourceKey": "data-mapping",      "groupKey": "data", "groupExternalId": "cap-data" },
+    { "externalId": "cap-ingestion-jobs",    "name": "Ingestion Jobs",     "resourceKey": "ingestion-jobs",    "groupKey": "data", "groupExternalId": "cap-data" },
+    { "externalId": "cap-queries",           "name": "Query History",      "resourceKey": "queries",           "groupKey": "data", "groupExternalId": "cap-data" },
+    { "externalId": "cap-ontology",          "name": "Ontology Sources",   "resourceKey": "ontology",          "groupKey": "data", "groupExternalId": "cap-data" },
+
+    { "externalId": "cap-ai", "name": "AI", "resourceKey": "ai", "groupKey": "ai" },
+    { "externalId": "cap-prompts",           "name": "LLM Prompts",        "resourceKey": "prompts",           "groupKey": "ai", "groupExternalId": "cap-ai" },
+    { "externalId": "cap-doc-ai",            "name": "Document AI",        "resourceKey": "doc-ai",            "groupKey": "ai", "groupExternalId": "cap-ai" },
+    { "externalId": "cap-email-ai",          "name": "Email AI",           "resourceKey": "email-ai",          "groupKey": "ai", "groupExternalId": "cap-ai" },
+    { "externalId": "cap-comms-ai",          "name": "Comms AI",           "resourceKey": "comms-ai",          "groupKey": "ai", "groupExternalId": "cap-ai" },
+
+    { "externalId": "cap-documents", "name": "Document Ingestion", "resourceKey": "documents", "groupKey": "documents" },
+    { "externalId": "cap-doc-ingest-defaults", "name": "Ingestion Defaults", "resourceKey": "doc-ingest-defaults", "groupKey": "documents", "groupExternalId": "cap-documents" },
+    { "externalId": "cap-doc-sources",       "name": "Folder Connections", "resourceKey": "doc-sources",       "groupKey": "documents", "groupExternalId": "cap-documents" },
+    { "externalId": "cap-doc-upload",        "name": "Upload",             "resourceKey": "doc-upload",        "groupKey": "documents", "groupExternalId": "cap-documents" },
+    { "externalId": "cap-doc-list",          "name": "Documents",          "resourceKey": "doc-list",          "groupKey": "documents", "groupExternalId": "cap-documents" },
+    { "externalId": "cap-doc-search-settings", "name": "Search Settings",  "resourceKey": "doc-search-settings", "groupKey": "documents", "groupExternalId": "cap-documents" },
+    { "externalId": "cap-doc-queries",       "name": "Document Queries",   "resourceKey": "doc-queries",       "groupKey": "documents", "groupExternalId": "cap-documents" },
+
+    { "externalId": "cap-comms", "name": "Communications", "resourceKey": "comms", "groupKey": "comms" },
+    { "externalId": "cap-email",             "name": "Email",              "resourceKey": "email",             "groupKey": "comms", "groupExternalId": "cap-comms" },
+    { "externalId": "cap-event-alerts",      "name": "Event Alerts",       "resourceKey": "event-alerts",      "groupKey": "comms", "groupExternalId": "cap-comms" },
+    { "externalId": "cap-mail-monitor",      "name": "Mail Monitor",       "resourceKey": "mail-monitor",      "groupKey": "comms", "groupExternalId": "cap-comms" },
+    { "externalId": "cap-channels",          "name": "Channels",           "resourceKey": "channels",          "groupKey": "comms", "groupExternalId": "cap-comms" },
+
+    { "externalId": "cap-appearance", "name": "Appearance", "resourceKey": "appearance", "groupKey": "appearance" },
+    { "externalId": "cap-branding",          "name": "Branding",           "resourceKey": "branding",          "groupKey": "appearance", "groupExternalId": "cap-appearance" },
+    { "externalId": "cap-dashboard",         "name": "Dashboard Defaults", "resourceKey": "dashboard",         "groupKey": "appearance", "groupExternalId": "cap-appearance" },
+
+    { "externalId": "cap-security-ops", "name": "Security & Operations", "resourceKey": "security-ops", "groupKey": "security-ops", "locked": true },
+    { "externalId": "cap-tenants",           "name": "Tenants",            "resourceKey": "tenants",           "groupKey": "security-ops", "groupExternalId": "cap-security-ops", "locked": true },
+    { "externalId": "cap-services",          "name": "Services",           "resourceKey": "services",          "groupKey": "security-ops", "groupExternalId": "cap-security-ops", "locked": true },
+    { "externalId": "cap-db-connections",    "name": "DB Connections",     "resourceKey": "db-connections",    "groupKey": "security-ops", "groupExternalId": "cap-security-ops", "locked": true },
+    { "externalId": "cap-logs",              "name": "Service Logs",       "resourceKey": "logs",              "groupKey": "security-ops", "groupExternalId": "cap-security-ops", "locked": true },
+    { "externalId": "cap-bases",             "name": "Platform Bases",     "resourceKey": "bases",             "groupKey": "security-ops", "groupExternalId": "cap-security-ops", "locked": true },
+
+    { "externalId": "cap-user-dashboard", "name": "User Dashboard", "resourceKey": "user-dashboard", "groupKey": "user-dashboard" },
+    { "externalId": "cap-tasks-for-action",  "name": "Tasks for Action",   "resourceKey": "tasks-for-action",  "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-notifications",     "name": "Notifications",      "resourceKey": "notifications",     "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-doc-search",        "name": "Document Search",    "resourceKey": "doc-search",        "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-decision-log",      "name": "Decision Log",       "resourceKey": "decision-log",      "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-ai-history",        "name": "AI History",         "resourceKey": "ai-history",        "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-ask-orphos",        "name": "Ask Orphos",         "resourceKey": "ask-orphos",        "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" },
+    { "externalId": "cap-widget-board",      "name": "Widget Board",       "resourceKey": "widget-board",      "groupKey": "user-dashboard", "groupExternalId": "cap-user-dashboard" }
+  ],
+
+  "widgets": [
+    { "externalId": "wid-uptime",           "name": "System Uptime",           "widgetKey": "uptime",            "inDataDomainExternalId": "dom-it-ops",     "isDefaultVisible": true },
+    { "externalId": "wid-budget",           "name": "IT Budget Consumed",      "widgetKey": "budget",            "inDataDomainExternalId": "dom-it-spend",   "isDefaultVisible": true },
+    { "externalId": "wid-incidents",        "name": "Active Incidents",        "widgetKey": "incidents",         "inDataDomainExternalId": "dom-it-ops",     "isDefaultVisible": true },
+    { "externalId": "wid-rag-red",          "name": "Projects at Risk",        "widgetKey": "rag-red",           "inDataDomainExternalId": "dom-portfolio",  "isDefaultVisible": true },
+    { "externalId": "wid-pending-decisions","name": "Pending Decisions",       "widgetKey": "pending-decisions", "inDataDomainExternalId": "dom-strategy",   "isDefaultVisible": false },
+    { "externalId": "wid-alerts",           "name": "Active Alerts",           "widgetKey": "alerts",            "inDataDomainExternalId": "dom-it-ops",     "isDefaultVisible": false },
+    { "externalId": "wid-sla-health",       "name": "SLA Health",              "widgetKey": "sla-health",        "inDataDomainExternalId": "dom-it-ops",     "isDefaultVisible": false },
+    { "externalId": "wid-system-health",    "name": "IT System Health",        "widgetKey": "system-health",     "inDataDomainExternalId": "dom-it-ops",     "isDefaultVisible": false },
+    { "externalId": "wid-budget-variance",  "name": "Budget Variance",         "widgetKey": "budget-variance",   "inDataDomainExternalId": "dom-budget",     "isDefaultVisible": false },
+    { "externalId": "wid-headcount",        "name": "Total Headcount",         "widgetKey": "headcount",         "inDataDomainExternalId": "dom-headcount",  "isDefaultVisible": false },
+    { "externalId": "wid-headcount-dept",   "name": "Headcount by Department", "widgetKey": "headcount-dept",    "inDataDomainExternalId": "dom-headcount",  "isDefaultVisible": false },
+    { "externalId": "wid-payroll",          "name": "Annual Payroll",          "widgetKey": "payroll",           "inDataDomainExternalId": "dom-payroll",    "isDefaultVisible": false },
+    { "externalId": "wid-net-cashflow",     "name": "Net Cash Flow",           "widgetKey": "net-cashflow",      "inDataDomainExternalId": "dom-treasury",   "isDefaultVisible": false },
+    { "externalId": "wid-cash-inflow",      "name": "Cash Inflow",             "widgetKey": "cash-inflow",       "inDataDomainExternalId": "dom-treasury",   "isDefaultVisible": false },
+    { "externalId": "wid-cash-outflow",     "name": "Cash Outflow",            "widgetKey": "cash-outflow",      "inDataDomainExternalId": "dom-treasury",   "isDefaultVisible": false },
+
+    { "externalId": "wid-pipeline-value",    "name": "Pipeline Value",           "widgetKey": "pipeline-value",    "inDataDomainExternalId": "dom-pipeline",  "isDefaultVisible": false },
+    { "externalId": "wid-revenue-arr",       "name": "Annual Recurring Revenue", "widgetKey": "revenue-arr",       "inDataDomainExternalId": "dom-contracts", "isDefaultVisible": false },
+    { "externalId": "wid-risk-exposure",     "name": "Risk Exposure",            "widgetKey": "risk-exposure",     "inDataDomainExternalId": "dom-risk",      "isDefaultVisible": false },
+    { "externalId": "wid-attrition",         "name": "Attrition Rate",           "widgetKey": "attrition",         "inDataDomainExternalId": "dom-talent",    "isDefaultVisible": false },
+    { "externalId": "wid-objective-progress","name": "Objective Progress",       "widgetKey": "objective-progress","inDataDomainExternalId": "dom-strategy",  "isDefaultVisible": false }
+  ],
+  "_newObservationsNote": "Observations for the five new cross-domain widgets agree with the underlying rows in zenitus-domain-profile.json: pipeline = the 18.2M + 8.4M FY2027 Q2 snapshots; ARR = the active GID + VojVoj phase-2 contracts; risk exposure = residual exposure summed across the 6 open/mitigating risks; attrition = Quality FY2027 Q2 at 20%; objective progress = 2 of 6 key results at or past target.",
+  "_newWidgetsNote": "The five widgets above close the domain gaps: before them NOTHING on the dashboard rendered Commercial, Contracts, Risk, Talent or Objective progress, so a CEO holding every domain still saw an IT-weighted board. Their values come from GovMetricObservation via /api/dashboard/persona-metrics/{widgetKey}, unlike the original 15 which read bespoke legacy endpoints.",
+
+  "metrics": [
+    { "externalId": "met-uptime",            "name": "System Uptime",           "metricKey": "it.uptime.pct",              "unit": "PERCENT",  "aggregation": "AVG",   "higherIsBetter": true,  "inDataDomainExternalId": "dom-it-ops",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-uptime" },
+    { "externalId": "met-it-budget",         "name": "IT Budget Consumed",      "metricKey": "it.budget.consumed.pct",     "unit": "PERCENT",  "aggregation": "LAST",  "higherIsBetter": false, "inDataDomainExternalId": "dom-it-spend",  "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-budget" },
+    { "externalId": "met-incidents",         "name": "Active Incidents",        "metricKey": "it.incidents.active",        "unit": "COUNT",    "aggregation": "COUNT", "higherIsBetter": false, "inDataDomainExternalId": "dom-it-ops",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-incidents" },
+    { "externalId": "met-projects-at-risk",  "name": "Projects at Risk",        "metricKey": "portfolio.projects.red",     "unit": "COUNT",    "aggregation": "COUNT", "higherIsBetter": false, "inDataDomainExternalId": "dom-portfolio", "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-rag-red" },
+    { "externalId": "met-pending-decisions", "name": "Pending Decisions",       "metricKey": "strategy.decisions.pending", "unit": "COUNT",    "aggregation": "COUNT", "higherIsBetter": false, "inDataDomainExternalId": "dom-strategy",  "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-pending-decisions" },
+    { "externalId": "met-alerts",            "name": "Active Alerts",           "metricKey": "it.alerts.active",           "unit": "COUNT",    "aggregation": "COUNT", "higherIsBetter": false, "inDataDomainExternalId": "dom-it-ops",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-alerts" },
+    { "externalId": "met-sla-health",         "name": "SLA Health",             "metricKey": "it.sla.compliance.pct",      "unit": "PERCENT",  "aggregation": "AVG",   "higherIsBetter": true,  "inDataDomainExternalId": "dom-it-ops",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-sla-health" },
+    { "externalId": "met-system-health",      "name": "IT System Health",       "metricKey": "it.systems.degraded",        "unit": "COUNT",    "aggregation": "COUNT", "higherIsBetter": false, "inDataDomainExternalId": "dom-it-ops",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-system-health" },
+    { "externalId": "met-budget-variance",    "name": "Budget Variance",        "metricKey": "fin.budget.variance",        "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": false, "figureKind": "FLOW", "inDataDomainExternalId": "dom-budget",    "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-budget-variance" },
+    { "externalId": "met-headcount",          "name": "Total Headcount",        "metricKey": "hr.headcount.total",         "unit": "COUNT",    "aggregation": "LAST",  "higherIsBetter": true,  "inDataDomainExternalId": "dom-headcount", "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-headcount" },
+    { "externalId": "met-headcount-dept",     "name": "Headcount by Department","metricKey": "hr.headcount.by-dept",       "unit": "COUNT",    "aggregation": "SUM",   "higherIsBetter": true,  "inDataDomainExternalId": "dom-headcount", "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-headcount-dept" },
+    { "externalId": "met-payroll",            "name": "Annual Payroll",         "metricKey": "hr.payroll.annual",          "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": false, "figureKind": "FLOW", "inDataDomainExternalId": "dom-payroll",   "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-payroll",   "description": "An AGGREGATE only - never a per-person figure. Confidential rather than Restricted precisely because it is an aggregate." },
+    { "externalId": "met-net-cashflow",       "name": "Net Cash Flow",          "metricKey": "fin.cashflow.net",           "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": true,  "figureKind": "FLOW", "inDataDomainExternalId": "dom-treasury",  "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-net-cashflow" },
+    { "externalId": "met-cash-inflow",        "name": "Cash Inflow",            "metricKey": "fin.cashflow.inflow",        "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": true,  "figureKind": "FLOW", "inDataDomainExternalId": "dom-treasury",  "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-cash-inflow" },
+    { "externalId": "met-cash-outflow",       "name": "Cash Outflow",           "metricKey": "fin.cashflow.outflow",       "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": false, "figureKind": "FLOW", "inDataDomainExternalId": "dom-treasury",  "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-cash-outflow" },
+
+    { "externalId": "met-pipeline-value",     "name": "Pipeline Value",         "metricKey": "com.pipeline.value",         "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": true,  "figureKind": "BALANCE", "inDataDomainExternalId": "dom-pipeline",  "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-pipeline-value" },
+    { "externalId": "met-revenue-arr",        "name": "Annual Recurring Revenue","metricKey": "com.revenue.arr",           "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": true,  "figureKind": "BALANCE", "inDataDomainExternalId": "dom-contracts", "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-revenue-arr" },
+    { "externalId": "met-risk-exposure",      "name": "Risk Exposure",          "metricKey": "risk.exposure.residual",     "unit": "CURRENCY", "aggregation": "SUM",   "higherIsBetter": false, "figureKind": "BALANCE", "inDataDomainExternalId": "dom-risk",      "sensitivityExternalId": "sen-confidential", "renderedByWidgetExternalId": "wid-risk-exposure" },
+    { "externalId": "met-attrition",          "name": "Attrition Rate",         "metricKey": "hr.attrition.rate",          "unit": "PERCENT",  "aggregation": "AVG",   "higherIsBetter": false, "inDataDomainExternalId": "dom-talent",    "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-attrition" },
+    { "externalId": "met-objective-progress", "name": "Objective Progress",     "metricKey": "strategy.kr.on-track.pct",   "unit": "PERCENT",  "aggregation": "AVG",   "higherIsBetter": true,  "inDataDomainExternalId": "dom-strategy",  "sensitivityExternalId": "sen-internal",     "renderedByWidgetExternalId": "wid-objective-progress" }
+  ],
+
+  "periods": [
+    { "externalId": "prd-fy2026",    "name": "FY2026",         "periodKey": "FY2026",    "periodType": "FISCAL_YEAR", "startDate": "2025-04-01", "endDate": "2026-03-31" },
+    { "externalId": "prd-fy2026-q1", "name": "FY2026 Q1",      "periodKey": "FY2026-Q1", "periodType": "QUARTER",     "startDate": "2025-04-01", "endDate": "2025-06-30", "withinPeriodExternalId": "prd-fy2026" },
+    { "externalId": "prd-fy2026-q2", "name": "FY2026 Q2",      "periodKey": "FY2026-Q2", "periodType": "QUARTER",     "startDate": "2025-07-01", "endDate": "2025-09-30", "withinPeriodExternalId": "prd-fy2026" },
+    { "externalId": "prd-fy2026-q3", "name": "FY2026 Q3",      "periodKey": "FY2026-Q3", "periodType": "QUARTER",     "startDate": "2025-10-01", "endDate": "2025-12-31", "withinPeriodExternalId": "prd-fy2026" },
+    { "externalId": "prd-fy2026-q4", "name": "FY2026 Q4",      "periodKey": "FY2026-Q4", "periodType": "QUARTER",     "startDate": "2026-01-01", "endDate": "2026-03-31", "withinPeriodExternalId": "prd-fy2026" },
+
+    { "externalId": "prd-fy2027",    "name": "FY2027",         "periodKey": "FY2027",    "periodType": "FISCAL_YEAR", "startDate": "2026-04-01", "endDate": "2027-03-31" },
+    { "externalId": "prd-fy2027-q1", "name": "FY2027 Q1",      "periodKey": "FY2027-Q1", "periodType": "QUARTER",     "startDate": "2026-04-01", "endDate": "2026-06-30", "withinPeriodExternalId": "prd-fy2027" },
+    { "externalId": "prd-fy2027-q2", "name": "FY2027 Q2",      "periodKey": "FY2027-Q2", "periodType": "QUARTER",     "startDate": "2026-07-01", "endDate": "2026-09-30", "withinPeriodExternalId": "prd-fy2027" },
+    { "externalId": "prd-fy2027-q3", "name": "FY2027 Q3",      "periodKey": "FY2027-Q3", "periodType": "QUARTER",     "startDate": "2026-10-01", "endDate": "2026-12-31", "withinPeriodExternalId": "prd-fy2027" },
+    { "externalId": "prd-fy2027-q4", "name": "FY2027 Q4",      "periodKey": "FY2027-Q4", "periodType": "QUARTER",     "startDate": "2027-01-01", "endDate": "2027-03-31", "withinPeriodExternalId": "prd-fy2027" },
+
+    { "externalId": "prd-2026-04",   "name": "April 2026",     "periodKey": "2026-04",   "periodType": "MONTH",       "startDate": "2026-04-01", "endDate": "2026-04-30", "withinPeriodExternalId": "prd-fy2027-q1" },
+    { "externalId": "prd-2026-05",   "name": "May 2026",       "periodKey": "2026-05",   "periodType": "MONTH",       "startDate": "2026-05-01", "endDate": "2026-05-31", "withinPeriodExternalId": "prd-fy2027-q1" },
+    { "externalId": "prd-2026-06",   "name": "June 2026",      "periodKey": "2026-06",   "periodType": "MONTH",       "startDate": "2026-06-01", "endDate": "2026-06-30", "withinPeriodExternalId": "prd-fy2027-q1" },
+    { "externalId": "prd-2026-07",   "name": "July 2026",      "periodKey": "2026-07",   "periodType": "MONTH",       "startDate": "2026-07-01", "endDate": "2026-07-31", "withinPeriodExternalId": "prd-fy2027-q2" },
+    { "externalId": "prd-2026-08",   "name": "August 2026",    "periodKey": "2026-08",   "periodType": "MONTH",       "startDate": "2026-08-01", "endDate": "2026-08-31", "withinPeriodExternalId": "prd-fy2027-q2" }
+  ],
+
+  "_classificationsNote": "The first block covers the 8000 IT-ops rows already loaded for this tenant. Classified by TYPE, so rows added later are covered automatically.",
+  "classifications": [
+    { "externalId": "cls-incident",   "graphType": "Incident",   "name": "Incident",    "inDataDomainExternalId": "dom-it-ops",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itsystem",   "graphType": "ITSystem",   "name": "IT System",   "inDataDomainExternalId": "dom-it-ops",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-slametric",  "graphType": "SLAMetric",  "name": "SLA Metric",  "inDataDomainExternalId": "dom-it-ops",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-alert",      "graphType": "Alert",      "name": "Alert",       "inDataDomainExternalId": "dom-it-ops",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-costcentre", "graphType": "CostCentre", "name": "Cost Centre", "inDataDomainExternalId": "dom-finance",  "sensitivityExternalId": "sen-internal", "description": "eip:CostCentre and fin:CostCentre are owl:equivalentClass - one entity, two viewpoints." },
+    { "externalId": "cls-budgetitem", "graphType": "BudgetItem", "name": "Budget Item", "inDataDomainExternalId": "dom-it-spend", "sensitivityExternalId": "sen-confidential", "description": "IT budget lines are money, so they land in the shared IT/Finance child - visible to the CTO through IT and the CFO through Finance." },
+    { "externalId": "cls-project",    "graphType": "Project",    "name": "Project",     "inDataDomainExternalId": "dom-portfolio","sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-decision",   "graphType": "Decision",   "name": "Decision",    "inDataDomainExternalId": "dom-strategy", "sensitivityExternalId": "sen-confidential" },
+
+    { "externalId": "cls-entcompany",       "graphType": "EntCompany",       "name": "Company",         "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entmission",       "graphType": "EntMission",       "name": "Mission",         "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entvision",        "graphType": "EntVision",        "name": "Vision",          "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entcorevalue",     "graphType": "EntCoreValue",     "name": "Core Value",      "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entbranch",        "graphType": "EntBranch",        "name": "Branch",          "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entlocation",      "graphType": "EntLocation",      "name": "Location",        "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entindustry",      "graphType": "EntIndustry",      "name": "Industry",        "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-entfunctionalarea","graphType": "EntFunctionalArea","name": "Functional Area", "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-entorgunit",       "graphType": "EntOrgUnit",       "name": "Org Unit",        "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-entexecutive",     "graphType": "EntExecutive",     "name": "Executive",       "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-entperson",        "graphType": "EntPerson",        "name": "Person",          "inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-entclient",        "graphType": "EntClient",        "name": "Client",          "inDataDomainExternalId": "dom-commercial", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-entengagement",    "graphType": "EntEngagement",    "name": "Engagement",      "inDataDomainExternalId": "dom-commercial", "sensitivityExternalId": "sen-confidential" },
+
+    { "externalId": "cls-finglaccount",   "graphType": "FinGLAccount",   "name": "GL Account",      "inDataDomainExternalId": "dom-gl",       "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-finvendor",      "graphType": "FinVendor",      "name": "Vendor",          "inDataDomainExternalId": "dom-finance",  "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-finbudget",      "graphType": "FinBudget",      "name": "Budget",          "inDataDomainExternalId": "dom-budget",   "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-finbudgetline",  "graphType": "FinBudgetLine",  "name": "Budget Line",     "inDataDomainExternalId": "dom-budget",   "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-fincashflow",    "graphType": "FinCashFlowEntry","name": "Cash Flow Entry","inDataDomainExternalId": "dom-treasury", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-fininvoice",     "graphType": "FinInvoice",     "name": "Invoice",         "inDataDomainExternalId": "dom-treasury", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-finstatement",   "graphType": "FinFinancialStatement", "name": "Financial Statement", "inDataDomainExternalId": "dom-finance", "sensitivityExternalId": "sen-confidential" },
+
+    { "externalId": "cls-hrdesignation",  "graphType": "HrDesignation",  "name": "Designation",     "inDataDomainExternalId": "dom-hr",        "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hremptype",      "graphType": "HrEmploymentType","name": "Employment Type","inDataDomainExternalId": "dom-hr",        "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hrskill",        "graphType": "HrSkill",        "name": "Skill",           "inDataDomainExternalId": "dom-talent",    "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hrposition",     "graphType": "HrPosition",     "name": "Position",        "inDataDomainExternalId": "dom-headcount", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hrheadcount",    "graphType": "HrHeadcountSnapshot", "name": "Headcount Snapshot", "inDataDomainExternalId": "dom-headcount", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hrattrition",    "graphType": "HrAttritionSnapshot", "name": "Attrition Snapshot", "inDataDomainExternalId": "dom-talent",    "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-hrband",         "graphType": "HrCompensationBand",  "name": "Compensation Band",  "inDataDomainExternalId": "dom-payroll",   "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-hrpayroll",      "graphType": "HrPayrollRun",   "name": "Payroll Run",     "inDataDomainExternalId": "dom-payroll",   "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-hrrequisition",  "graphType": "HrRequisition",  "name": "Requisition",     "inDataDomainExternalId": "dom-talent",    "sensitivityExternalId": "sen-confidential" },
+
+    { "externalId": "cls-comproduct",     "graphType": "ComProduct",     "name": "Product",         "inDataDomainExternalId": "dom-commercial", "sensitivityExternalId": "sen-public" },
+    { "externalId": "cls-comserviceline", "graphType": "ComServiceLine", "name": "Service Line",    "inDataDomainExternalId": "dom-commercial", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-comopportunity", "graphType": "ComOpportunity", "name": "Opportunity",     "inDataDomainExternalId": "dom-pipeline",   "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-comcontract",    "graphType": "ComContract",    "name": "Contract",        "inDataDomainExternalId": "dom-contracts",  "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-compipeline",    "graphType": "ComPipelineSnapshot", "name": "Pipeline Snapshot", "inDataDomainExternalId": "dom-pipeline", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-comcsat",        "graphType": "ComSatisfactionScore","name": "Satisfaction Score", "inDataDomainExternalId": "dom-commercial", "sensitivityExternalId": "sen-internal" },
+
+    { "externalId": "cls-strobjective",   "graphType": "StrObjective",   "name": "Objective",       "inDataDomainExternalId": "dom-strategy",  "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-strkeyresult",   "graphType": "StrKeyResult",   "name": "Key Result",      "inDataDomainExternalId": "dom-strategy",  "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-strinitiative",  "graphType": "StrInitiative",  "name": "Initiative",      "inDataDomainExternalId": "dom-portfolio", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-strmilestone",   "graphType": "StrMilestone",   "name": "Milestone",       "inDataDomainExternalId": "dom-portfolio", "sensitivityExternalId": "sen-internal" },
+
+    { "externalId": "cls-rskpolicy",      "graphType": "RskPolicy",      "name": "Policy",          "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-rskobligation",  "graphType": "RskComplianceObligation", "name": "Compliance Obligation", "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-rskcontrol",     "graphType": "RskControl",     "name": "Control",         "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-rskrisk",        "graphType": "RskRisk",        "name": "Risk",            "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-rskaudit",       "graphType": "RskAudit",       "name": "Audit",           "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-rskfinding",     "graphType": "RskAuditFinding","name": "Audit Finding",   "inDataDomainExternalId": "dom-risk", "sensitivityExternalId": "sen-confidential" },
+
+    { "externalId": "cls-itopsservice",   "graphType": "ItopsBusinessService", "name": "Business Service", "inDataDomainExternalId": "dom-it-ops",      "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itopsasset",     "graphType": "ItopsAsset",     "name": "IT Asset",        "inDataDomainExternalId": "dom-it-assets",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itopssla",       "graphType": "ItopsServiceLevelAgreement", "name": "SLA", "inDataDomainExternalId": "dom-it-ops",      "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itopschange",    "graphType": "ItopsChangeRequest", "name": "Change Request", "inDataDomainExternalId": "dom-it-ops",   "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itopsrelease",   "graphType": "ItopsRelease",   "name": "Release",         "inDataDomainExternalId": "dom-it-ops",      "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-itopsvuln",      "graphType": "ItopsVulnerability", "name": "Vulnerability", "inDataDomainExternalId": "dom-it-security", "sensitivityExternalId": "sen-confidential", "description": "An unpatched-vulnerability list is a target map, so it does not inherit the Internal sensitivity of the rest of the estate." },
+
+    { "externalId": "cls-okgissue",       "graphType": "OkgIssue",       "name": "Work Item",       "inDataDomainExternalId": "dom-it-ops",     "sensitivityExternalId": "sen-internal", "description": "Jira-sourced work items. Currently 0 rows, classified now so ingested data is covered on arrival rather than needing a backfill - the same reason classification is type-level." },
+
+    { "externalId": "cls-employee",       "graphType": "Employee",       "name": "Employee (legacy HR type)", "inDataDomainExternalId": "dom-payroll", "sensitivityExternalId": "sen-confidential",
+      "description": "The pre-existing HR vertex type that ArcadeDbContextBuilder.buildWorkforceContext summarises. Classified into Payroll/Confidential rather than Headcount/Internal because the type carries a PER-PERSON annualCtc property. NOTE: that property is exactly what eip-hr.owl says must not exist - individual compensation should live on hr:CompensationBand (a grade) or hr:PayrollRun (a population). The context builder only ever emits aggregates from it, so classifying it Confidential keeps the working feature while confining it to finance/people personas. Fixing the underlying type is a separate data-model change." },
+    { "externalId": "cls-cashflowmonth",  "graphType": "CashFlowMonth",  "name": "Monthly Cash Flow (legacy finance type)", "inDataDomainExternalId": "dom-treasury", "sensitivityExternalId": "sen-confidential",
+      "description": "The pre-existing finance vertex type. Aligned in eip-finance.owl as a subclass of fin:CashFlowEntry, so it inherits Treasury/Confidential in the OWL too - this row is the ArcadeDB mirror of that." },
+    { "externalId": "cls-okgproject",     "graphType": "OkgProject",     "name": "Work Item Project","inDataDomainExternalId": "dom-portfolio", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-okgperson",      "graphType": "OkgPerson",      "name": "Work Item Person","inDataDomainExternalId": "dom-enterprise", "sensitivityExternalId": "sen-internal" },
+
+    { "externalId": "cls-govpersona",     "graphType": "GovPersona",     "name": "Persona",         "inDataDomainExternalId": "dom-governance", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-govdomain",      "graphType": "GovDataDomain",  "name": "Data Domain",     "inDataDomainExternalId": "dom-governance", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-govcapability",  "graphType": "GovCapability",  "name": "Capability",      "inDataDomainExternalId": "dom-governance", "sensitivityExternalId": "sen-internal" },
+    { "externalId": "cls-govgrant",       "graphType": "GovAccessGrant", "name": "Access Grant",    "inDataDomainExternalId": "dom-governance", "sensitivityExternalId": "sen-confidential" },
+    { "externalId": "cls-govclassification","graphType": "GovClassification","name": "Classification","inDataDomainExternalId": "dom-governance","sensitivityExternalId": "sen-internal" }
+  ],
+
+  "_accessGrantsNote": "Tenant-editable overrides on top of the persona defaults. Kept minimal on purpose: the persona vocabulary should carry the policy, and grants should be the exception a tenant admin adds - not a second, competing copy of the matrix.",
+  "accessGrants": [
+    {
+      "externalId": "grant-cto-own-org-portfolio",
+      "name": "CTO portfolio scoped to own org subtree",
+      "personaExternalId": "per-cto",
+      "domainExternalId": "dom-portfolio",
+      "effect": "allow",
+      "accessScope": "OWN_ORG_SUBTREE",
+      "description": "The CTO sees portfolio data for their own org unit and everything beneath it, resolved through EMBODIED_BY then the ent:subUnitOf closure - rather than every project in the tenant."
+    },
+    {
+      "externalId": "grant-executive-no-contracts",
+      "name": "Executive denied contract values",
+      "personaExternalId": "per-executive",
+      "domainExternalId": "dom-contracts",
+      "effect": "deny",
+      "accessScope": "ALL",
+      "description": "Explicit deny demonstrating that a grant can subtract as well as add: the generic Executive persona sees strategy but not commercial contract values."
+    }
+  ],
+
+  "metricObservations": [
+    { "externalId": "obs-uptime-2026-08",       "name": "System Uptime, Aug 2026",       "metricExternalId": "met-uptime",            "periodExternalId": "prd-2026-08",   "value": 99.62, "targetValue": 99.5,  "ragStatus": "GREEN" },
+    { "externalId": "obs-uptime-2026-07",       "name": "System Uptime, Jul 2026",       "metricExternalId": "met-uptime",            "periodExternalId": "prd-2026-07",   "value": 99.31, "targetValue": 99.5,  "ragStatus": "AMBER" },
+    { "externalId": "obs-sla-2026-08",          "name": "SLA Health, Aug 2026",          "metricExternalId": "met-sla-health",        "periodExternalId": "prd-2026-08",   "value": 96.4,  "targetValue": 98.0,  "ragStatus": "AMBER" },
+    { "externalId": "obs-syshealth-2026-08",    "name": "Degraded Systems, Aug 2026",    "metricExternalId": "met-system-health",     "periodExternalId": "prd-2026-08",   "value": 7,     "targetValue": 3,     "ragStatus": "RED" },
+    { "externalId": "obs-incidents-2026-08",    "name": "Active Incidents, Aug 2026",    "metricExternalId": "met-incidents",         "periodExternalId": "prd-2026-08",   "value": 42,    "targetValue": 25,    "ragStatus": "RED" },
+    { "externalId": "obs-alerts-2026-08",       "name": "Active Alerts, Aug 2026",       "metricExternalId": "met-alerts",            "periodExternalId": "prd-2026-08",   "value": 18,    "targetValue": 10,    "ragStatus": "AMBER" },
+
+    { "externalId": "obs-itbudget-fy2027-q2",   "name": "IT Budget Consumed, FY2027 Q2", "metricExternalId": "met-it-budget",         "periodExternalId": "prd-fy2027-q2", "value": 48.5,  "targetValue": 50.0,  "ragStatus": "GREEN", "currency": "INR" },
+    { "externalId": "obs-budgetvar-fy2027-q2",  "name": "Budget Variance, FY2027 Q2",    "metricExternalId": "met-budget-variance",   "periodExternalId": "prd-fy2027-q2", "value": 1850000, "targetValue": 0,   "ragStatus": "AMBER", "currency": "INR" },
+
+    { "externalId": "obs-cashin-2026-07",       "name": "Cash Inflow, Jul 2026",         "metricExternalId": "met-cash-inflow",       "periodExternalId": "prd-2026-07",   "value": 13400000, "ragStatus": "GREEN", "currency": "INR" },
+    { "externalId": "obs-cashout-2026-07",      "name": "Cash Outflow, Jul 2026",        "metricExternalId": "met-cash-outflow",      "periodExternalId": "prd-2026-07",   "value": 11750000, "ragStatus": "GREEN", "currency": "INR" },
+    { "externalId": "obs-netcash-2026-07",      "name": "Net Cash Flow, Jul 2026",       "metricExternalId": "met-net-cashflow",      "periodExternalId": "prd-2026-07",   "value": 1650000,  "targetValue": 1500000, "ragStatus": "GREEN", "currency": "INR" },
+    { "externalId": "obs-cashin-2026-08",       "name": "Cash Inflow, Aug 2026",         "metricExternalId": "met-cash-inflow",       "periodExternalId": "prd-2026-08",   "value": 12100000, "ragStatus": "AMBER", "currency": "INR" },
+    { "externalId": "obs-cashout-2026-08",      "name": "Cash Outflow, Aug 2026",        "metricExternalId": "met-cash-outflow",      "periodExternalId": "prd-2026-08",   "value": 12480000, "ragStatus": "AMBER", "currency": "INR" },
+    { "externalId": "obs-netcash-2026-08",      "name": "Net Cash Flow, Aug 2026",       "metricExternalId": "met-net-cashflow",      "periodExternalId": "prd-2026-08",   "value": -380000,  "targetValue": 1500000, "ragStatus": "RED", "currency": "INR" },
+
+    { "externalId": "obs-headcount-2026-08",    "name": "Total Headcount, Aug 2026",     "metricExternalId": "met-headcount",        "periodExternalId": "prd-2026-08",   "value": 23,    "targetValue": 28,    "ragStatus": "AMBER" },
+    { "externalId": "obs-hc-delivery-2026-08",  "name": "Headcount, Delivery, Aug 2026", "metricExternalId": "met-headcount-dept",   "periodExternalId": "prd-2026-08",   "value": 13,    "ragStatus": "GREEN", "orgUnitExternalId": "ou-delivery" },
+    { "externalId": "obs-hc-japan-2026-08",     "name": "Headcount, Japan, Aug 2026",    "metricExternalId": "met-headcount-dept",   "periodExternalId": "prd-2026-08",   "value": 6,     "ragStatus": "GREEN", "orgUnitExternalId": "ou-japan-ops" },
+    { "externalId": "obs-hc-quality-2026-08",   "name": "Headcount, Quality, Aug 2026",  "metricExternalId": "met-headcount-dept",   "periodExternalId": "prd-2026-08",   "value": 4,     "ragStatus": "AMBER", "orgUnitExternalId": "ou-quality" },
+    { "externalId": "obs-payroll-fy2027-q2",    "name": "Annual Payroll, FY2027 Q2",     "metricExternalId": "met-payroll",         "periodExternalId": "prd-fy2027-q2", "value": 41400000, "targetValue": 44000000, "ragStatus": "GREEN", "currency": "INR" },
+
+    { "externalId": "obs-projred-2026-08",      "name": "Projects at Risk, Aug 2026",    "metricExternalId": "met-projects-at-risk", "periodExternalId": "prd-2026-08",   "value": 3,     "targetValue": 0,     "ragStatus": "RED" },
+    { "externalId": "obs-decisions-2026-08",    "name": "Pending Decisions, Aug 2026",   "metricExternalId": "met-pending-decisions","periodExternalId": "prd-2026-08",   "value": 5,     "targetValue": 2,     "ragStatus": "AMBER" },
+
+    { "externalId": "obs-pipeline-fy2027-q2",   "name": "Pipeline Value, FY2027 Q2",     "metricExternalId": "met-pipeline-value",    "periodExternalId": "prd-fy2027-q2", "value": 26600000, "targetValue": 30000000, "ragStatus": "AMBER", "currency": "INR" },
+    { "externalId": "obs-pipeline-fy2027-q1",   "name": "Pipeline Value, FY2027 Q1",     "metricExternalId": "met-pipeline-value",    "periodExternalId": "prd-fy2027-q1", "value": 14600000, "targetValue": 30000000, "ragStatus": "RED",   "currency": "INR" },
+    { "externalId": "obs-arr-fy2027-q2",        "name": "ARR, FY2027 Q2",                "metricExternalId": "met-revenue-arr",       "periodExternalId": "prd-fy2027-q2", "value": 37300000, "targetValue": 42000000, "ragStatus": "AMBER", "currency": "INR" },
+    { "externalId": "obs-risk-fy2027-q2",       "name": "Risk Exposure, FY2027 Q2",      "metricExternalId": "met-risk-exposure",     "periodExternalId": "prd-fy2027-q2", "value": 58550000, "targetValue": 40000000, "ragStatus": "RED",   "currency": "INR" },
+    { "externalId": "obs-attrition-fy2027-q2",  "name": "Attrition Rate, FY2027 Q2",     "metricExternalId": "met-attrition",         "periodExternalId": "prd-fy2027-q2", "value": 20.0,     "targetValue": 10.0,     "ragStatus": "RED" },
+    { "externalId": "obs-attrition-fy2027-q1",  "name": "Attrition Rate, FY2027 Q1",     "metricExternalId": "met-attrition",         "periodExternalId": "prd-fy2027-q1", "value": 5.1,      "targetValue": 10.0,     "ragStatus": "GREEN" },
+    { "externalId": "obs-objprog-fy2027-q2",    "name": "Objective Progress, FY2027 Q2", "metricExternalId": "met-objective-progress","periodExternalId": "prd-fy2027-q2", "value": 33.3,     "targetValue": 80.0,     "ragStatus": "RED" }
+  ]
+}

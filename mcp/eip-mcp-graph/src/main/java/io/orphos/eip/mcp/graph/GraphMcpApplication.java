@@ -1,0 +1,37 @@
+package io.orphos.eip.mcp.graph;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+/**
+ * Standalone MCP tool server for knowledge-graph queries (TO-BE design §14): exposes a read-only
+ * SPARQL query tool wrapping graph-proxy-service, over MCP Streamable HTTP.
+ */
+@SpringBootApplication
+public class GraphMcpApplication {
+    public static void main(String[] args) {
+        // Read by log4j2-json-layout.json's "hostIpAddress" field. Must be set before Spring
+        // (and therefore Log4j2) starts, since it's resolved once at config load and reused for
+        // every log line for the life of the process. POD_IP, if the orchestrator injects it
+        // (e.g. Kubernetes' downward API), takes priority over Java's own NIC lookup, which can
+        // report an internal container bridge address rather than the one other services reach
+        // this instance on.
+        System.setProperty("HOST_IP", resolveHostIp());
+        SpringApplication.run(GraphMcpApplication.class, args);
+    }
+
+    private static String resolveHostIp() {
+        String podIp = System.getenv("POD_IP");
+        if (podIp != null && !podIp.isBlank()) {
+            return podIp;
+        }
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            return "unknown";
+        }
+    }
+}

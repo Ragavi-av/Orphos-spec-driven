@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small rounded-square status dot; colour is set at runtime via backgroundTint. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/status_busy" />
+    <corners android:radius="2dp" />
+</shape>

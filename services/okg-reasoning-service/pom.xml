@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.orphos.eip</groupId>
+    <artifactId>eip-mvp-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>okg-reasoning-service</artifactId>
+  <name>okg-reasoning-service</name>
+  <description>OKG Reasoning — runs a scheduled per-tenant cycle that loads ontology facts from
+      ArcadeDB into a Jena OWL model, runs rule-based inference (transitive relationships), layers
+      on computed analytical facts (overdue/blocked/overloaded), and writes the results back to
+      Fuseki under the tenant's named graph.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.orphos.eip</groupId>
+      <artifactId>eip-secrets</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.orphos.eip</groupId>
+      <artifactId>eip-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.orphos.eip</groupId>
+      <artifactId>eip-core-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.orphos.eip</groupId>
+      <artifactId>eip-core-arcadedb</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-arq</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-core</artifactId>
+    </dependency>
+    <!-- OWL/rule reasoning uses Jena's built-in reasoner (ReasonerRegistry /
+         OntModelSpec.OWL_MEM_RULE_INF) from jena-core above — Apache-2.0. -->
+    <!-- RDFConnection/RDFConnectionRemote (talking to Fuseki over HTTP) live
+         in their own Jena module, not jena-arq. -->
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-rdfconnection</artifactId>
+    </dependency>
+
+    <!-- Test -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <!-- Logging is Log4j2 (see log4j2.xml), not the default Logback. -->
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Log4j2, replacing the Logback default excluded above. log4j2.xml owns the
+         appenders and the JSON format; per-package levels stay in application.yml's
+         logging.level.*, which Spring Boot applies to Log4j2 just as it did to Logback. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-log4j2</artifactId>
+    </dependency>
+    <!-- JsonTemplateLayout, for the JSON log output defined in log4j2-json-layout.json. -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-layout-template-json</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared with the camera app: it writes the full-resolution photo straight into
+     cache/captures (CaptureFiles.newPhotoFile), which is then OCR'd and saved as the original. -->
+<paths>
+    <cache-path name="captures" path="captures/" />
+</paths>

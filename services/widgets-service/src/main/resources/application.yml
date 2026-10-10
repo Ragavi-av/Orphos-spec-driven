@@ -1,0 +1,71 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: widgets-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs}
+
+# ArcadeDB HTTP API
+arcadedb:
+  url: ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user: ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    # OUTBOUND side of the /api/internal/ shared secret. Without it the access-map
+    # and tenant-issuer polls to platform-core 401, and the fail-closed
+    # 'widget-board' resource 503s every /api/dashboard/persona-metrics tile.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+eip:
+  security:
+    # Trusted-issuer set fetched live from platform-core-service.
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      # Shared internal token — lets this service fetch the RBAC access map from
+      # platform-core (/api/internal/access-grants) to enforce Dashboard Defaults.
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    platform-issuer: ${KEYCLOAK_PLATFORM_ISSUER:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+  cors:
+    allowed-origins:
+      - http://localhost:3001
+      - http://localhost:5173   # Vite dev server
+  # Base URL for platform-core-service, used to fetch the tenant's dynamic
+  # (data-onboarded) widget ids when validating a saved layout.
+  onboarding:
+    widgets-url: ${EIP_PLATFORM_CORE_URL:http://eip-platform-core:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    io.orphos.eip.admin: INFO
+    org.springframework.security: INFO

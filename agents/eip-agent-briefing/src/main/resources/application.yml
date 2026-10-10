@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: eip-agent-briefing
+
+# Agent runtime settings (see AgentRuntimeProperties). Overridden per environment.
+eip:
+  # Planner routing: nl-query resolves the tenant's tool-calling model for the
+  # "agent-planning" usage type (design §15). Falls back to the local planner model when disabled.
+  ai:
+    nl-query:
+      enabled: ${EIP_NL_QUERY_ENABLED:true}
+      base-url: ${EIP_NL_QUERY_URL:http://eip-nl-query:8082}
+      internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+  agent:
+    runtime:
+      registry-base-url: ${EIP_REGISTRY_URL:http://eip-platform-registry:8093}
+      base-url: ${EIP_AGENT_BASE_URL:http://eip-agent-briefing:8080}
+      health-path: /actuator/health
+      register-on-startup: true
+      internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+      planner:
+        base-url: ${OLLAMA_URL:http://eip-ollama:11434}
+        model: ${EIP_AGENT_PLANNER_MODEL:qwen2.5:7b}
+        max-steps: 8
+        timeout-seconds: 120
+      # Ops-editable goal prompts, keyed by the manifest's goalPromptKey (design §5.2).
+      prompts:
+        briefing.goal: >-
+          You are the Daily Briefing agent. Using the available tools, produce a concise,
+          prioritized briefing of what needs attention today for this tenant. Ground every
+          statement in tool data; do not invent items.
+
+# Infisical-backed secrets (shared internal-service token).
+secrets:
+  host:               ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment:        ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

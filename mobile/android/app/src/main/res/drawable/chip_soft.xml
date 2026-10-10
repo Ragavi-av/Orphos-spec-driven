@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded soft chip. Tint the background via android:backgroundTint / setBackgroundTintList. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="7dp" />
+    <solid android:color="@color/surface_3" />
+</shape>

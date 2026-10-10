@@ -1,0 +1,14 @@
+# Production profile for admin-console-service.
+#
+# Activated by SPRING_PROFILES_ACTIVE=prod, which docker-compose.app.yml passes
+# by default via ${EIP_PROFILE:-prod}.
+#
+# These values deliberately match application.yml's defaults. The base file is
+# the fallback for a run with no profile at all; restating them here makes the
+# production intent explicit, so that turning the base default up during
+# debugging cannot quietly turn it up in production too.
+logging:
+  level:
+    io.orphos.eip.admin: INFO
+    org.springframework: ERROR
+    org.springframework.security: INFO

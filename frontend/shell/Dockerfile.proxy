@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1.7
+# Lightweight API proxy for the NATIVE MOBILE app.
+#
+# The native app only uses the shell host as its reverse proxy for /api/* (it never
+# loads the web SPA), so this image ships the SAME nginx routing as the shell
+# (frontend/shell/nginx.conf — /api/mobile/*, /api/decisions, /api/mail-insight/*,
+# the plugin gates, tenant lookup, …) but WITHOUT the multi-minute Vite production
+# build. Used by the `mobile` startup profile (see startmodules.sh) so bringing up
+# the mobile backend never triggers the shell's `npm run build`.
+#
+# Build context is ./frontend (same as the shell), so `COPY shell/nginx.conf` resolves.
+FROM nginx:alpine
+COPY shell/nginx.conf /etc/nginx/conf.d/default.conf
+# A tiny placeholder so a browser hitting "/" gets a clear message instead of 404;
+# the web UI is intentionally not served here.
+RUN printf '%s' '<!doctype html><meta charset="utf-8"><title>Orphos mobile API proxy</title><body style="font-family:sans-serif;background:#0b1020;color:#e6e9f0;padding:2rem"><h1>Orphos — mobile API proxy</h1><p>This host proxies <code>/api/*</code> for the native mobile app. The web UI is not served here.</p></body>' \
+    > /usr/share/nginx/html/index.html
+EXPOSE 80

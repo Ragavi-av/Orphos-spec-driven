@@ -1,0 +1,83 @@
+server:
+  port: 8097
+
+spring:
+  application:
+    name: mobile-bff-service
+  # Captures upload their original bytes (camera photos, handwriting, audio); Spring's
+  # 1MB default rejects a normal phone photo. Keep in step with the proxy's
+  # client_max_body_size on /api/mobile/.
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+# ArcadeDB — shared orphos database. Backs the durable mobile-workspace types
+# (Capture / CaptureMessage / PushDevice / …). Password resolved from OpenBao via
+# the eip-secrets binding below; never read from a .env secret path.
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# Set mobile.schema.bootstrap-enabled=false where the orphos DB schema is
+# operator-managed and DDL must not run at boot.
+mobile:
+  schema:
+    bootstrap-enabled: ${MOBILE_SCHEMA_BOOTSTRAP_ENABLED:true}
+  # Seed demo finance / HR / forecast rows so the Financials and Team Intelligence
+  # tiles show data. Off by default; set the tenant id to the demo tenant to enable.
+  demo:
+    seed-enabled: ${MOBILE_DEMO_SEED_ENABLED:false}
+    tenant-id: ${MOBILE_DEMO_TENANT_ID:}
+
+eip:
+  security:
+    # Multi-issuer JWT (realm-per-tenant) is resolved by eip-common's
+    # MultiIssuerJwtAutoConfiguration using tenant-discovery + allowed-issuers.
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://${EIP_PUBLIC_HOST:localhost}:8443/realms/${KEYCLOAK_REALM:eip}}
+      - ${EIP_SECURITY_PLATFORM_ISSUER:http://${EIP_PUBLIC_HOST:localhost}:8443/realms/platform}
+    internal-service-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+  downstream:
+    briefing-url: ${BRIEFING_URL:http://eip-briefing:8084}
+    decision-log-url: ${DECISION_LOG_URL:http://eip-decision-log:8086}
+    priority-url: ${PRIORITY_ENGINE_URL:http://eip-priority-engine:8083}
+    mail-insight-url: ${MAIL_INSIGHT_URL:http://eip-mail-insight:8092}
+    okg-reasoning-url: ${OKG_REASONING_URL:http://eip-okg-reasoning:8088}
+    # Persona metrics — the same per-metric figures the web widget board shows.
+    widgets-url: ${WIDGETS_URL:http://eip-widgets:8095}
+    doc-ingest-url: ${DOC_INGEST_URL:http://eip-doc-ingest:8091}
+    platform-core-url: ${PLATFORM_CORE_URL:http://eip-platform-core:8090}
+
+secrets:
+  host:               ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment:        ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    # Shared /api/internal token so tenant-issuer discovery (and any internal
+    # downstream calls) authenticate against platform-core.
+    - EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN=eip/internal-service#token
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+    # ArcadeDB password for the durable capture / device stores.
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true

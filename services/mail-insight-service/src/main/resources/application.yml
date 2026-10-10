@@ -1,0 +1,117 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: mail-insight-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://eip-keycloak:8080/realms/${KEYCLOAK_REALM:eip}/protocol/openid-connect/certs}
+
+# ArcadeDB — shared orphos database (MailMonitorConfig / MonitoredMailbox / MailInsight / MailScanRun).
+arcadedb:
+  url:      ${ARCADEDB_URL:http://eip-arcadedb:2480}
+  user:     ${ARCADEDB_USER:root}
+  password: ${ARCADEDB_PASSWORD:}
+  database: ${ARCADEDB_DB:orphos}
+
+# Infisical secret backend. Graph client secrets are written here per tenant;
+# ArcadeDB stores only the Infisical reference path.
+secrets:
+  host:        ${INFISICAL_HOST:http://eip-infisical:8080}
+  project-id:         ${INFISICAL_PROJECT_ID:}
+  project-id-file:    ${INFISICAL_PROJECT_ID_FILE:}
+  environment: ${INFISICAL_ENV:prod}
+  client-id:          ${INFISICAL_CLIENT_ID:}
+  client-id-file:     ${INFISICAL_CLIENT_ID_FILE:}
+  client-secret-file: ${INFISICAL_CLIENT_SECRET_FILE:}
+  bindings:
+    - ARCADEDB_PASSWORD=eip/arcadedb#password
+    - EIP_SECURITY_INTERNAL_SERVICE_TOKEN=eip/internal-service#token
+
+eip:
+  security:
+    # Poll admin-service for the live tenant realm issuer list so tenant-specific
+    # realm JWTs are accepted, and to enumerate active tenants for scheduled scans.
+    tenant-discovery:
+      url: ${EIP_TENANT_DISCOVERY_URL:http://eip-platform-core:8090}
+      service-token: ${EIP_SECURITY_TENANT_DISCOVERY_SERVICE_TOKEN:${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}}
+      cache-ttl: PT60S
+    internal-issuer-base: ${KEYCLOAK_INTERNAL_BASE:http://eip-keycloak:8080}
+    platform-issuer: ${EIP_SECURITY_PLATFORM_ISSUER:}
+    allowed-issuers:
+      - ${KEYCLOAK_ISSUER_URI:http://localhost:8443/realms/${KEYCLOAK_REALM:eip}}
+  cors:
+    allowed-origins:
+      - http://localhost:3001
+      - http://localhost:5173
+
+# Microsoft Graph (mail + calendar). App-only / client-credentials flow.
+graph:
+  base-url:  ${MS_GRAPH_BASE:https://graph.microsoft.com/v1.0}
+  login-base: ${MS_LOGIN_BASE:https://login.microsoftonline.com}
+  scope:     ${MS_GRAPH_SCOPE:https://graph.microsoft.com/.default}
+  timeout-seconds: ${MS_GRAPH_TIMEOUT:30}
+  # Hard ceiling on messages/events fetched per mailbox per scan.
+  max-items: ${MS_GRAPH_MAX_ITEMS:100}
+
+# Inference — rule-based always runs; LLM enrichment is best-effort via nl-query.
+mail-insight:
+  default-scan-window-days: ${MAIL_DEFAULT_WINDOW_DAYS:7}
+  llm:
+    enabled: ${MAIL_LLM_ENABLED:true}
+    nl-query-url: ${NL_QUERY_URL:http://eip-nl-query:8082}
+    internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+    timeout-seconds: ${MAIL_LLM_TIMEOUT:60}
+  scan:
+    # Background scan sweep across active tenants. Disabled by default until a
+    # tenant configures a Graph connection; the loop no-ops for unconfigured tenants.
+    enabled: ${MAIL_SCAN_ENABLED:true}
+    interval-ms: ${MAIL_SCAN_INTERVAL_MS:900000}     # 15 min
+  # Communication channels (Slack / Microsoft Teams / …). Messages are ingested,
+  # classified (same rule+LLM chain, distinct comms-classification prompt) and
+  # written into the same MailInsight feed as email, tagged by channel.
+  channels:
+    slack:
+      api-base: ${SLACK_API_BASE:https://slack.com/api}
+      max-items: ${SLACK_MAX_ITEMS:100}
+      timeout-seconds: ${SLACK_TIMEOUT:30}
+    scan:
+      # Background channel-scan sweep. No-ops for tenants with no channel connection.
+      enabled: ${MAIL_CHANNELS_SCAN_ENABLED:true}
+      interval-ms: ${MAIL_CHANNELS_SCAN_INTERVAL_MS:900000}   # 15 min
+    # Communications agent (channel-item AI actions: draft reply / send). Drafts
+    # via nl-query; sends back through the channel's own connector.
+    agent:
+      enabled: ${MAIL_CHANNELS_AGENT_ENABLED:true}
+  reminder:
+    interval-ms: ${MAIL_REMINDER_INTERVAL_MS:300000} # 5 min
+  # Email-task agent (Notifications tab AI actions). Drafts via nl-query (same
+  # token as llm above); sends through the tenant's Communications-tab SMTP
+  # config via admin-console-service's internal send endpoint.
+  agent:
+    enabled: ${MAIL_AGENT_ENABLED:true}
+    email-send-url: ${EIP_EMAIL_SEND_URL:http://eip-admin-console:8094}
+    internal-token: ${EIP_SECURITY_INTERNAL_SERVICE_TOKEN:}
+  # priority-engine-service's shared EPQ queue — used by DataSourceReader so
+  # Decision/Incident/Alert rows show the same composite priority score as the
+  # rest of the platform instead of a locally re-derived severity-only guess.
+  priority-engine:
+    url: ${PRIORITY_ENGINE_URL:http://eip-priority-engine:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    io.orphos.eip.mailinsight: INFO

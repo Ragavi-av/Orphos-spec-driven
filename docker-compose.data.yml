@@ -1,0 +1,101 @@
+networks:
+  eip-net:
+    external: true
+
+volumes:
+  arcadedb_data:
+    name: eip-arcadedb-data
+  fuseki_data:
+    name: eip-fuseki-data
+  qdrant_data:
+    name: eip-qdrant-data
+
+# Route every container's stdout to Fluent Bit via the Docker fluentd
+# log driver. async=true so containers never block if Fluent Bit is down;
+# Docker dual-logging keeps `docker logs` working locally.
+x-fluentd-logging: &flog
+  driver: fluentd
+  options:
+    fluentd-address: "localhost:24224"
+    fluentd-async: "true"
+    tag: "{{.Name}}"
+
+services:
+  arcadedb:
+    # Pinned by digest (the :latest tag currently resolves to 26.7.2-SNAPSHOT,
+    # an unstable pre-release build, not a numbered release) so every machine
+    # that pulls this - including an offline-package build machine and an
+    # online-assisted install target pulling at a different point in time -
+    # gets the exact same bytes. Bump deliberately; don't drift back to :latest.
+    image: arcadedata/arcadedb@sha256:cec1a2d5fb0c96d22ed6b3a5d87e39f747c35019a6ab232d234a15363a3e2e35
+    container_name: eip-arcadedb
+    logging: *flog
+    # Bundled ArcadeDB is optional and INDEPENDENT of the bundled Postgres: it
+    # starts only when the "bundled-arcade" profile is active (set by start.sh
+    # from EIP_BUNDLED_ARCADEDB, default true). Point services at an external
+    # ArcadeDB and drop the profile to run with no local ArcadeDB container.
+    profiles: ["bundled-arcade"]
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx1024m -Darcadedb.server.rootPassword=${ARCADEDB_PASSWORD} -Darcadedb.server.defaultDatabases="
+      # Read at runtime by the healthcheck below. Never hardcode the historical
+      # root:arcadedb123 here - it broke the moment ARCADEDB_PASSWORD was
+      # anything else (e.g. install.ps1's per-installation generated value).
+      ARCADEDB_PASSWORD: ${ARCADEDB_PASSWORD}
+    ports:
+      - "2480:2480"
+      - "2424:2424"
+    volumes:
+      - arcadedb_data:/home/arcadedb/databases
+    mem_limit: 1200m
+    networks: [eip-net]
+    restart: unless-stopped
+    # The healthcheck builds its own Basic Auth header from the container's
+    # ARCADEDB_PASSWORD env var at RUN time ($$ escapes keep compose from
+    # substituting at render time), rather than hardcoding root:arcadedb123 -
+    # that broke the moment ARCADEDB_PASSWORD was anything else (e.g.
+    # install.ps1's per-installation generated/prompted value). This image's
+    # wget is BusyBox's minimal build - no --user/--password flags, only
+    # --header, so the header is base64-encoded by hand (BusyBox ships base64).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --header \"Authorization: Basic $$(printf '%s' \"root:$$ARCADEDB_PASSWORD\" | base64)\" http://localhost:2480/api/v1/server || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Built from the official Apache Jena Fuseki release (Apache-2.0, checksum-
+  # verified) instead of the unofficial stain/jena-fuseki community image —
+  # same software, trusted provenance. See config/fuseki/Dockerfile.
+  fuseki:
+    build:
+      context: ./config/fuseki
+    image: eip-fuseki
+    container_name: eip-fuseki
+    logging: *flog
+    environment:
+      - JAVA_OPTIONS=-Xmx320m -Xms128m
+      - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD}
+    ports:
+      - "3030:3030"
+    volumes:
+      - fuseki_data:/fuseki
+      - ./config/fuseki/config.ttl:/fuseki/config.ttl:ro
+    mem_limit: 384m
+    networks: [eip-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/$/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.0
+    container_name: eip-qdrant
+    logging: *flog
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    mem_limit: 512m
+    networks: [eip-net]
+    restart: unless-stopped

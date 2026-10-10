@@ -1,0 +1,65 @@
+{
+  "externalId": "acme-analytics",
+  "company": {
+    "name": "Acme Analytics",
+    "legalName": "Acme Analytics Inc.",
+    "tradeName": "Acme",
+    "foundedYear": 2009,
+    "registrationNumber": "ACME-INC-0099231",
+    "website": "https://acme-analytics.example.com",
+    "companyType": "PRIVATE",
+    "stockSymbol": null,
+    "employeeCount": 640,
+    "annualRevenue": 128000000.0,
+    "currency": "USD",
+    "description": "Enterprise data analytics and decision-intelligence software.",
+    "headquartersLocationExternalId": "loc-sf"
+  },
+  "mission": "Turn every organisation's data into confident, timely decisions.",
+  "vision": "A world where no strategic decision is made in the dark.",
+  "values": [
+    { "externalId": "val-customer", "name": "Customer obsession", "statement": "Start from the customer's outcome and work backwards." },
+    { "externalId": "val-integrity", "name": "Integrity", "statement": "Do the right thing even when it is costly." },
+    { "externalId": "val-craft", "name": "Craft", "statement": "Ship work we are proud to put our name on." }
+  ],
+  "functionalAreas": [
+    { "externalId": "fa-rnd", "name": "Research & Development", "description": "Platform and ML engineering." },
+    { "externalId": "fa-sales", "name": "Sales", "description": "New business and account growth." },
+    { "externalId": "fa-cs", "name": "Customer Success", "description": "Onboarding, support and retention." },
+    { "externalId": "fa-consulting", "name": "Professional Services", "description": "Delivery and implementation consulting." }
+  ],
+  "industries": [
+    { "externalId": "ind-fin", "name": "Financial Services", "sectorCode": "NAICS-52", "description": "Banking, insurance, capital markets." },
+    { "externalId": "ind-health", "name": "Healthcare", "sectorCode": "NAICS-62", "description": "Providers and payers." },
+    { "externalId": "ind-retail", "name": "Retail", "sectorCode": "NAICS-44", "description": "Omnichannel retail." }
+  ],
+  "locations": [
+    { "externalId": "loc-sf", "name": "San Francisco HQ", "addressLine": "500 Market Street, Suite 1200", "city": "San Francisco", "stateProvince": "CA", "country": "USA", "postalCode": "94105", "latitude": 37.7897, "longitude": -122.4000, "timezone": "America/Los_Angeles" },
+    { "externalId": "loc-lon", "name": "London Office", "addressLine": "18 Finsbury Circus", "city": "London", "stateProvince": "England", "country": "United Kingdom", "postalCode": "EC2M 7EB", "latitude": 51.5188, "longitude": -0.0855, "timezone": "Europe/London" },
+    { "externalId": "loc-blr", "name": "Bengaluru R&D Centre", "addressLine": "Prestige Tech Park, Marathahalli", "city": "Bengaluru", "stateProvince": "Karnataka", "country": "India", "postalCode": "560103", "latitude": 12.9560, "longitude": 77.7010, "timezone": "Asia/Kolkata" }
+  ],
+  "branches": [
+    { "externalId": "br-sf", "name": "San Francisco HQ", "branchType": "HEADQUARTERS", "openedDate": "2009-04-01", "description": "Global headquarters.", "locationExternalId": "loc-sf" },
+    { "externalId": "br-lon", "name": "EMEA Regional Office", "branchType": "REGIONAL", "openedDate": "2015-09-15", "description": "EMEA sales and support.", "locationExternalId": "loc-lon" },
+    { "externalId": "br-blr", "name": "Bengaluru Engineering", "branchType": "RND", "openedDate": "2018-02-01", "description": "Product engineering centre.", "locationExternalId": "loc-blr" }
+  ],
+  "orgUnits": [
+    { "externalId": "ou-eng", "name": "Engineering Division", "unitType": "DIVISION", "unitCode": "ENG", "description": "All product engineering.", "parentExternalId": null, "headExecutiveExternalId": "exec-cto", "responsibleForAreaExternalIds": ["fa-rnd"] },
+    { "externalId": "ou-platform", "name": "Platform Team", "unitType": "TEAM", "unitCode": "ENG-PLT", "description": "Core platform.", "parentExternalId": "ou-eng", "headExecutiveExternalId": null, "responsibleForAreaExternalIds": ["fa-rnd"] },
+    { "externalId": "ou-gtm", "name": "Go-To-Market Division", "unitType": "DIVISION", "unitCode": "GTM", "description": "Sales, CS and services.", "parentExternalId": null, "headExecutiveExternalId": "exec-cro", "responsibleForAreaExternalIds": ["fa-sales", "fa-cs", "fa-consulting"] }
+  ],
+  "executives": [
+    { "externalId": "exec-ceo", "displayName": "Chief Executive Officer", "jobTitle": "CEO", "appointedDate": "2009-04-01", "companyLeader": true, "memberOfOrgUnitExternalId": null, "reportsToExternalId": null },
+    { "externalId": "exec-cto", "displayName": "Chief Technology Officer", "jobTitle": "CTO", "appointedDate": "2010-06-01", "companyLeader": true, "memberOfOrgUnitExternalId": "ou-eng", "reportsToExternalId": "exec-ceo" },
+    { "externalId": "exec-cro", "displayName": "Chief Revenue Officer", "jobTitle": "CRO", "appointedDate": "2016-01-15", "companyLeader": true, "memberOfOrgUnitExternalId": "ou-gtm", "reportsToExternalId": "exec-ceo" }
+  ],
+  "clients": [
+    { "externalId": "cl-northbank", "name": "Northbank Financial", "clientTier": "STRATEGIC", "clientSince": "2017-03-01", "relationshipStatus": "ACTIVE", "description": "Tier-1 retail bank.", "locationExternalId": "loc-lon", "industryExternalIds": ["ind-fin"] },
+    { "externalId": "cl-medicare", "name": "Valley Health Group", "clientTier": "KEY", "clientSince": "2019-11-01", "relationshipStatus": "ACTIVE", "description": "Regional hospital network.", "locationExternalId": "loc-sf", "industryExternalIds": ["ind-health"] },
+    { "externalId": "cl-shopwave", "name": "ShopWave Retail", "clientTier": "STANDARD", "clientSince": "2021-06-01", "relationshipStatus": "PROSPECT", "description": "Omnichannel retailer.", "locationExternalId": null, "industryExternalIds": ["ind-retail"] }
+  ],
+  "engagements": [
+    { "externalId": "eng-northbank-risk", "name": "Northbank Risk Intelligence Rollout", "startDate": "2023-01-10", "endDate": "2024-03-31", "engagementStatus": "COMPLETED", "contractValue": 2400000.0, "currency": "USD", "description": "Firm-wide risk analytics deployment.", "clientExternalId": "cl-northbank", "industryExternalId": "ind-fin", "deliveredByOrgUnitExternalId": "ou-gtm" },
+    { "externalId": "eng-valley-ops", "name": "Valley Health Operations Dashboard", "startDate": "2024-05-01", "endDate": null, "engagementStatus": "ACTIVE", "contractValue": 850000.0, "currency": "USD", "description": "Capacity and throughput analytics.", "clientExternalId": "cl-medicare", "industryExternalId": "ind-health", "deliveredByOrgUnitExternalId": "ou-gtm" }
+  ]
+}

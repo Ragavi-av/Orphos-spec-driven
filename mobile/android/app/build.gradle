@@ -1,0 +1,129 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.orphos.mobile'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.orphos.mobile"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+
+        // Per-client on-prem backend endpoint. Overridden per build/flavour later;
+        // BuildConfig.API_BASE_URL is read by the API client.
+        // Defaults point at the local Orphos stack reached via `adb reverse`
+        // (localhost on the phone → laptop). Change per environment.
+        // Port 3002 is the MOBILE api proxy (compose service `mobile-proxy`,
+        // started by `startmodules mobile`); 3001 is the WEB UI and does not
+        // serve the native app. Keep this in sync with docker-compose.app.yml.
+        buildConfigField "String", "API_BASE_URL", "\"http://localhost:3002/\""
+        buildConfigField "String", "DEFAULT_TENANT_SLUG", "\"localhost\""
+        // Keycloak (OIDC) — realm is resolved per tenant at runtime.
+        buildConfigField "String", "KEYCLOAK_URL", "\"http://localhost:8443/\""
+        buildConfigField "String", "OIDC_CLIENT_ID", "\"orphos-spa\""
+        buildConfigField "String", "OIDC_REDIRECT_URI", "\"com.orphos.mobile:/oauth2redirect\""
+
+        // AppAuth OIDC redirect scheme (used by the library's RedirectUriReceiverActivity)
+        manifestPlaceholders = [appAuthRedirectScheme: 'com.orphos.mobile']
+
+        // When true, the app starts straight in demo mode (mock data, no backend).
+        // Only the `demo` build sets this; debug/release show the real login.
+        buildConfigField "boolean", "DEMO_DEFAULT", "false"
+
+        // Executive "Busy" threshold — sourced from gradle.properties (the build
+        // environment file), overridable at runtime via AppConfig. The Home header
+        // shows "Busy" when open tasks in hand exceed this number.
+        buildConfigField "int", "BUSY_TASK_THRESHOLD",
+                (project.hasProperty('orphos.busyTaskThreshold')
+                        ? project.property('orphos.busyTaskThreshold')
+                        : '3')
+
+        // Alerts: whether HIGH-priority items count as alerts (true) or only CRITICAL.
+        buildConfigField "boolean", "ALERTS_INCLUDE_HIGH",
+                (project.hasProperty('orphos.alertsIncludeHigh')
+                        ? project.property('orphos.alertsIncludeHigh')
+                        : 'false')
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        // Shareable, self-contained demo: mock data on every screen, no backend or
+        // `adb reverse` needed. Inherits the debug signing config so it installs on
+        // any phone (enable "install unknown apps").
+        demo {
+            initWith debug
+            applicationIdSuffix ".demo"
+            versionNameSuffix "-demo"
+            buildConfigField "boolean", "DEMO_DEFAULT", "true"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+
+    // Navigation (bottom-nav across the five sections)
+    implementation 'androidx.navigation:navigation-fragment:2.8.5'
+    implementation 'androidx.navigation:navigation-ui:2.8.5'
+    implementation 'androidx.viewpager2:viewpager2:1.1.0'
+
+    // Lifecycle
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-livedata:2.8.7'
+
+    // Networking to the Orphos /api contract
+    implementation 'com.squareup.retrofit2:retrofit:2.11.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.11.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+
+    // Secure token vault + biometric unlock
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    implementation 'androidx.biometric:biometric:1.1.0'
+
+    // OIDC Authorization Code + PKCE against the tenant's Keycloak realm
+    implementation 'net.openid:appauth:0.11.1'
+
+    // On-device handwriting recognition for Scribbles. Reads the canvas STROKES, which
+    // is far more accurate on handwriting than OCR of the flattened image; the ink
+    // never leaves the phone (only the per-language model is downloaded once).
+    implementation 'com.google.mlkit:digital-ink-recognition:19.0.0'
+
+    // Capture image: the live camera inside the designed viewfinder (CameraX), and on-device
+    // text detection on the preview frames for AI framing / Auto Detect. Frames never leave
+    // the phone; only the photo the user confirms with Done is uploaded for OCR + summary.
+    def camerax = '1.4.2'
+    implementation "androidx.camera:camera-camera2:$camerax"
+    implementation "androidx.camera:camera-lifecycle:$camerax"
+    implementation "androidx.camera:camera-view:$camerax"
+    implementation "androidx.camera:camera-mlkit-vision:$camerax"
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}
