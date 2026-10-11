@@ -88,3 +88,6 @@ mobile/android/local.properties
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 drivers/mysql-connector-j-*/
+
+# Skill definitions are source: keep their Markdown despite the global *.md rule
+!.claude/skills/**/*.md
