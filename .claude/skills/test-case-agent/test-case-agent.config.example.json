@@ -21,6 +21,9 @@
   "testCaseIssueType": "Test",
   "issueLinkType": "Relates",
 
+  "attachmentFilename": "testcases-{taskKey}.xlsx",
+  "onExistingAttachment": "replace",
+
   "similarityThreshold": 0.85,
   "defaultLabels": ["test-case-agent"],
   "commentOnTask": true,

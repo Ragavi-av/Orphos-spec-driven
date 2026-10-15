@@ -1,0 +1,26 @@
+{
+  "projectKey": "",
+  "taskIssueTypes": ["Task", "Sub-task"],
+  "approvedStatuses": ["Approved"],
+
+  "authorizedApprovers": {
+    "accountIds": [],
+    "groups": ["task-approvers"]
+  },
+
+  "forbidSelfApproval": true,
+  "rejectIfEditedAfterApproval": true,
+  "protectedFields": ["summary", "description"],
+
+  "approverField": "",
+  "approverFieldMustMatchTransition": true,
+
+  "requireApprovedStory": true,
+  "storyApprovedStatuses": ["Approved", "In Progress"],
+
+  "attachmentFilename": "architecture-{taskKey}.md",
+  "onExistingAttachment": "replace",
+
+  "commentOnTask": true,
+  "scanLimit": 50
+}

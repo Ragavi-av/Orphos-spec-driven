@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -20,6 +21,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Test Case agent helper for the {@code test-case-agent} Claude skill.
@@ -45,7 +49,7 @@ public class TestCaseAgent {
             "  scan     [--story KEY] [--project KEY] [--jql \"...\"]   approved tasks, gate verdict + existing test case count",
             "  read     <TASK-KEY>                                   gate verdict + task content + AC list + existing test cases (JSON)",
             "  validate <TASK-KEY> <testcases.json>                  offline structure/coverage/duplicate check (no Jira)",
-            "  create   <TASK-KEY> <testcases.json> [--dry-run]      validate, re-check gate, drop duplicates, create + link",
+            "  create   <TASK-KEY> <testcases.json> [--dry-run]      validate, re-check gate, build an xlsx of the test cases and attach it to the task",
             "options: --config <path>  (default .claude/skills/test-case-agent/test-case-agent.config.json)",
             "env:     JIRA_URL, JIRA_EMAIL, JIRA_TOKEN",
             "exit:    0 ok | 2 gate rejected | 3 test case validation failed | 1 error | 64 usage");
@@ -202,78 +206,143 @@ public class TestCaseAgent {
         out.put("dryRun", dryRun);
         out.put("gate", g.toJson());
         if (!g.approved) {
-            out.put("created", List.of());
+            out.put("attached", null);
             System.out.println(Json.write(out));
             return EXIT_REJECTED;
         }
 
-        // Validate everything before touching Jira: all test cases are created, or none.
+        // Validate everything before touching Jira: the whole file passes or nothing happens.
         List<String> criteriaIds = new ArrayList<>();
         List<String> criteria = extractCriteria(Adf.toText(Json.map(g.issue.get("fields")).get("description")));
         for (int i = 0; i < criteria.size(); i++) criteriaIds.add("AC" + (i + 1));
         List<Object> problems = validateDoc(cfg, key, doc, criteriaIds);
         if (!problems.isEmpty()) {
             out.put("invalid", problems);
-            out.put("created", List.of());
+            out.put("attached", null);
             System.out.println(Json.write(out));
             return EXIT_INVALID;
         }
 
-        String projectKey = cfg.projectKey != null ? cfg.projectKey : Json.str(g.issue, "fields", "project", "key");
         String storyKey = Json.str(g.approval, "storyKey");
+        List<Object> cases = Json.list(doc.get("testCases"));
 
-        // Duplicate prevention against what is already linked to this task.
-        List<Dedupe.Known> known = new ArrayList<>();
-        for (Map<String, Object> t : existingTests(jira, cfg, key)) {
-            List<String> labels = new ArrayList<>();
-            for (Object l : Json.list(Json.at(t, "fields", "labels"))) labels.add(String.valueOf(l));
-            known.add(new Dedupe.Known(Json.str(t, "key"), Json.str(t, "fields", "summary"), labels));
+        // Build the xlsx rows in the Jira CSV/Excel import column layout, plus traceability columns
+        // the importer ignores but humans use.
+        List<String> headers = List.of(
+                "Summary", "Issue Type", "Description", "Priority",
+                "Labels", "Scenario Type", "Automation", "Covers",
+                "Task Key", "Story Key");
+        List<List<String>> rows = new ArrayList<>();
+        String issueType = orDefault(cfg.testCaseIssueType, "Test");
+        for (Object o : cases) {
+            Map<String, Object> tc = Json.map(o);
+            String title = orDefault(Json.str(tc, "title"), "").trim();
+            if (title.length() > 255) title = title.substring(0, 255);
+            String type = orDefault(Json.str(tc, "type"), "");
+            String automation = orDefault(Json.str(tc, "automation"), "");
+            String priority = orDefault(Json.str(tc, "priority"), "");
+
+            List<String> coversIds = new ArrayList<>();
+            for (Object c : Json.list(tc.get("covers"))) coversIds.add(String.valueOf(c));
+            String covers = coversIds.isEmpty() && Boolean.TRUE.equals(tc.get("coversObjective"))
+                    ? "Objective" : String.join(", ", coversIds);
+
+            List<Object> labels = new ArrayList<>(cfg.defaultLabels);
+            addLabel(labels, "task-" + key);
+            if (storyKey != null) addLabel(labels, "story-" + storyKey);
+            addLabel(labels, "type-" + type);
+            if (!blank(automation)) addLabel(labels, "automation-" + automation);
+            for (Object l : Json.list(tc.get("labels"))) addLabel(labels, String.valueOf(l));
+            List<String> labelStrs = new ArrayList<>();
+            for (Object l : labels) labelStrs.add(String.valueOf(l));
+
+            List<String> row = new ArrayList<>();
+            row.add(title);
+            row.add(issueType);
+            row.add(describeTestCase(tc, key, storyKey, criteria));
+            row.add(priority);
+            row.add(String.join(" ", labelStrs));
+            row.add(type);
+            row.add(automation);
+            row.add(covers);
+            row.add(key);
+            row.add(orDefault(storyKey, ""));
+            rows.add(row);
         }
 
-        List<Object> created = new ArrayList<>(), skipped = new ArrayList<>(), failed = new ArrayList<>();
-        for (Object o : Json.list(doc.get("testCases"))) {
-            Map<String, Object> tc = Json.map(o);
-            String title = Json.str(tc, "title").trim();
-            if (title.length() > 255) title = title.substring(0, 255);
-            String fp = Dedupe.fingerprint(tc);
-            String dupOf = Dedupe.match(known, title, fp, cfg.similarityThreshold);
-            if (dupOf != null) {
-                skipped.add(Map.of("title", title, "reason", "duplicate of " + dupOf));
-                continue;
-            }
-            Map<String, Object> fields = testFields(cfg, projectKey, key, storyKey, title, fp, tc, criteria);
-            if (dryRun) {
-                created.add(Map.of("title", title, "type", Json.str(tc, "type"), "fingerprint", fp));
-                known.add(new Dedupe.Known("(this run)", title, List.of("tc-fp-" + fp)));
-                continue;
+        byte[] xlsx = Xlsx.build(headers, rows);
+        String filename = cfg.attachmentFilename.replace("{taskKey}", key);
+
+        out.put("filename", filename);
+        out.put("testCount", cases.size());
+        out.put("sizeBytes", xlsx.length);
+        out.put("matrix", matrix(doc));
+
+        if (dryRun) {
+            out.put("attached", null);
+            out.put("note", "dry-run: xlsx built in memory, no attachment uploaded");
+            System.out.println(Json.write(out));
+            return EXIT_OK;
+        }
+
+        // Replace a previous version of the same file, if configured to do so, so re-running is idempotent.
+        List<Object> replaced = new ArrayList<>();
+        Map<String, Object> withAtts = Json.map(jira.get("/rest/api/3/issue/" + enc(key) + "?fields=attachment"));
+        for (Object a : Json.list(Json.at(withAtts, "fields", "attachment"))) {
+            Map<String, Object> att = Json.map(a);
+            if (!filename.equalsIgnoreCase(Json.str(att, "filename"))) continue;
+            String attId = Json.str(att, "id");
+            if ("fail".equalsIgnoreCase(cfg.onExistingAttachment)) {
+                out.put("error", "attachment '" + filename + "' already exists on " + key
+                        + " (id=" + attId + ") and onExistingAttachment=fail");
+                out.put("attached", null);
+                System.out.println(Json.write(out));
+                return EXIT_ERROR;
             }
             try {
-                String testKey = Json.str(jira.post("/rest/api/3/issue", Map.of("fields", fields)), "key");
-                Map<String, Object> link = new LinkedHashMap<>();
-                link.put("type", Map.of("name", cfg.issueLinkType));
-                link.put("inwardIssue", Map.of("key", testKey));
-                link.put("outwardIssue", Map.of("key", key));
-                try {
-                    jira.post("/rest/api/3/issueLink", link);
-                } catch (Jira.JiraException e) {
-                    // The test exists but is not linked: report it loudly, traceability is the point.
-                    failed.add(Map.of("title", title, "key", testKey, "error", "created but link to " + key
-                            + " failed: " + e.getMessage()));
-                    continue;
-                }
-                created.add(Map.of("key", testKey, "title", title, "type", Json.str(tc, "type")));
-                known.add(new Dedupe.Known(testKey, title, List.of("tc-fp-" + fp)));
+                jira.delete("/rest/api/3/attachment/" + enc(attId));
+                replaced.add(Map.of("id", attId, "filename", filename));
             } catch (Jira.JiraException e) {
-                failed.add(Map.of("title", title, "error", e.getMessage()));
+                out.put("error", "could not delete existing attachment " + attId + ": " + e.getMessage());
+                out.put("attached", null);
+                System.out.println(Json.write(out));
+                return EXIT_ERROR;
             }
         }
+        out.put("replaced", replaced);
 
-        if (!dryRun && cfg.commentOnTask && !created.isEmpty()) {
+        Object attResp;
+        try {
+            attResp = jira.postMultipart("/rest/api/3/issue/" + enc(key) + "/attachments",
+                    filename,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    xlsx);
+        } catch (Jira.JiraException e) {
+            out.put("error", "attachment upload failed: " + e.getMessage());
+            out.put("attached", null);
+            System.out.println(Json.write(out));
+            return EXIT_ERROR;
+        }
+
+        List<Object> attachedList = Json.list(attResp);
+        Map<String, Object> firstAtt = attachedList.isEmpty() ? Map.of() : Json.map(attachedList.get(0));
+        Map<String, Object> attached = new LinkedHashMap<>();
+        attached.put("id", Json.str(firstAtt, "id"));
+        attached.put("filename", Json.str(firstAtt, "filename"));
+        attached.put("size", Json.at(firstAtt, "size"));
+        attached.put("url", Json.str(firstAtt, "content"));
+        out.put("attached", attached);
+
+        if (cfg.commentOnTask) {
             List<Object> lines = new ArrayList<>();
-            for (Object c : created) lines.add(Json.str(c, "key") + " [" + Json.str(c, "type") + "] " + Json.str(c, "title"));
+            lines.add("Attachment: " + filename + " (" + cases.size() + " test case"
+                    + (cases.size() == 1 ? "" : "s") + ")");
+            if (!replaced.isEmpty()) {
+                lines.add("Replaced " + replaced.size() + " previous version"
+                        + (replaced.size() == 1 ? "" : "s") + " of this file.");
+            }
             List<Object> content = new ArrayList<>();
-            content.add(Adf.para("Test Case Agent created " + created.size() + " test case"
-                    + (created.size() == 1 ? "" : "s") + " for this approved task:"));
+            content.add(Adf.para("Test Case Agent attached an updated test case workbook for this approved task:"));
             content.add(Adf.bullets(lines));
             try {
                 jira.post("/rest/api/3/issue/" + enc(key) + "/comment", Map.of("body", Adf.doc(content)));
@@ -282,12 +351,65 @@ public class TestCaseAgent {
             }
         }
 
-        out.put("matrix", matrix(doc));
-        out.put("created", created);
-        out.put("skipped", skipped);
-        out.put("failed", failed);
         System.out.println(Json.write(out));
-        return failed.isEmpty() ? EXIT_OK : EXIT_ERROR;
+        return EXIT_OK;
+    }
+
+    /** Flattens one test case into the plain-text block that goes into the Description cell. */
+    static String describeTestCase(Map<String, Object> tc, String taskKey, String storyKey, List<String> criteria) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Verifies task: ").append(taskKey);
+        if (storyKey != null) sb.append("\nStory: ").append(storyKey);
+        sb.append("\nScenario type: ").append(orDefault(Json.str(tc, "type"), ""));
+        String auto = Json.str(tc, "automation");
+        if (!blank(auto)) sb.append(" | Automation: ").append(auto);
+        sb.append('\n');
+
+        List<Object> covers = Json.list(tc.get("covers"));
+        if (!covers.isEmpty()) {
+            sb.append("\nCovers:\n");
+            for (Object c : covers) {
+                String id = String.valueOf(c).trim().toUpperCase(Locale.ROOT);
+                int idx = id.matches("AC\\d+") ? Integer.parseInt(id.substring(2)) - 1 : -1;
+                String ac = idx >= 0 && idx < criteria.size() ? criteria.get(idx) : "";
+                sb.append("  - ").append(id);
+                if (!ac.isEmpty()) sb.append(" - ").append(ac);
+                sb.append('\n');
+            }
+        } else if (Boolean.TRUE.equals(tc.get("coversObjective"))) {
+            sb.append("\nCovers: task objective\n");
+        }
+
+        String objective = Json.str(tc, "objective");
+        if (!blank(objective)) sb.append("\nObjective:\n").append(objective).append('\n');
+
+        List<Object> pre = Json.list(tc.get("preconditions"));
+        if (!pre.isEmpty()) {
+            sb.append("\nPreconditions:\n");
+            for (Object p : pre) sb.append("  - ").append(p).append('\n');
+        }
+
+        List<Object> steps = Json.list(tc.get("steps"));
+        if (!steps.isEmpty()) {
+            sb.append("\nSteps:\n");
+            int n = 1;
+            for (Object s : steps) {
+                sb.append(n++).append(". ").append(orDefault(Json.str(s, "action"), ""))
+                        .append("\n   Expected: ").append(orDefault(Json.str(s, "expected"), "")).append('\n');
+            }
+        }
+
+        String expected = Json.str(tc, "expected");
+        if (!blank(expected)) sb.append("\nExpected result:\n").append(expected).append('\n');
+
+        List<Object> data = Json.list(tc.get("testData"));
+        if (!data.isEmpty()) {
+            sb.append("\nTest data:\n");
+            for (Object d : data) sb.append("  - ").append(d).append('\n');
+        }
+
+        sb.append("\nGenerated by Test Case Agent from approved task ").append(taskKey).append('.');
+        return sb.toString();
     }
 
     // ------------------------------------------------------------------ validation
@@ -647,7 +769,7 @@ public class TestCaseAgent {
     // ------------------------------------------------------------------ config
 
     static final class Config {
-        String projectKey, testCaseIssueType, issueLinkType, approverField;
+        String projectKey, testCaseIssueType, issueLinkType, approverField, attachmentFilename, onExistingAttachment;
         List<String> taskIssueTypes, approvedStatuses, storyApprovedStatuses, approverAccountIds, approverGroups,
                 protectedFields;
         List<Object> defaultLabels;
@@ -669,6 +791,13 @@ public class TestCaseAgent {
             if (c.taskIssueTypes.isEmpty()) c.taskIssueTypes = List.of("Task", "Sub-task");
             c.testCaseIssueType = orDefault(Json.str(m, "testCaseIssueType"), "Test");
             c.issueLinkType = orDefault(Json.str(m, "issueLinkType"), "Relates");
+            c.attachmentFilename = orDefault(blankToNull(Json.str(m, "attachmentFilename")), "testcases-{taskKey}.xlsx");
+            c.onExistingAttachment = orDefault(blankToNull(Json.str(m, "onExistingAttachment")), "replace")
+                    .toLowerCase(Locale.ROOT);
+            if (!c.onExistingAttachment.equals("replace") && !c.onExistingAttachment.equals("fail")) {
+                throw new IllegalStateException("onExistingAttachment must be 'replace' or 'fail', got '"
+                        + c.onExistingAttachment + "'");
+            }
             c.approverField = blankToNull(Json.str(m, "approverField"));
             c.approvedStatuses = strings(m.get("approvedStatuses"));
             if (c.approvedStatuses.isEmpty()) c.approvedStatuses = List.of("Approved");
@@ -787,6 +916,28 @@ public class TestCaseAgent {
             return send(HttpRequest.newBuilder(URI.create(base + path))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(Json.write(body), StandardCharsets.UTF_8)), path);
+        }
+
+        Object postMultipart(String path, String filename, String contentType, byte[] bytes) throws Exception {
+            String boundary = "----TestCaseAgent" + UUID.randomUUID().toString().replace("-", "");
+            // Field name "file" and header X-Atlassian-Token: no-check are both required by the Jira attachment endpoint.
+            String safeName = filename.replace("\"", "'").replace("\r", "").replace("\n", "");
+            String preamble = "--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"file\"; filename=\"" + safeName + "\"\r\n"
+                    + "Content-Type: " + contentType + "\r\n\r\n";
+            String epilogue = "\r\n--" + boundary + "--\r\n";
+            ByteArrayOutputStream body = new ByteArrayOutputStream(preamble.length() + bytes.length + epilogue.length());
+            body.write(preamble.getBytes(StandardCharsets.UTF_8));
+            body.write(bytes);
+            body.write(epilogue.getBytes(StandardCharsets.UTF_8));
+            return send(HttpRequest.newBuilder(URI.create(base + path))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .header("X-Atlassian-Token", "no-check")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())), path);
+        }
+
+        Object delete(String path) throws Exception {
+            return send(HttpRequest.newBuilder(URI.create(base + path)).DELETE(), path);
         }
 
         Object send(HttpRequest.Builder b, String path) throws Exception {
@@ -1301,5 +1452,149 @@ public class TestCaseAgent {
         UsageException(String m) {
             super(m);
         }
+    }
+
+    // ------------------------------------------------------------------ XLSX writer (minimal, pure JDK)
+
+    /**
+     * Hand-rolled Office Open XML workbook writer. Produces a single-sheet {@code .xlsx} with a bold header row,
+     * wrap-text data rows and inline strings (no shared string table) so there is nothing stateful to track.
+     * Opens cleanly in Excel, LibreOffice, Google Sheets, and the plain Jira CSV/Excel importer.
+     */
+    static final class Xlsx {
+        static byte[] build(List<String> headers, List<List<String>> rows) throws Exception {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+                put(zos, "[Content_Types].xml", CONTENT_TYPES);
+                put(zos, "_rels/.rels", ROOT_RELS);
+                put(zos, "xl/workbook.xml", WORKBOOK);
+                put(zos, "xl/_rels/workbook.xml.rels", WORKBOOK_RELS);
+                put(zos, "xl/styles.xml", STYLES);
+                put(zos, "xl/worksheets/sheet1.xml", sheet(headers, rows));
+            }
+            return baos.toByteArray();
+        }
+
+        private static void put(ZipOutputStream zos, String name, String content) throws Exception {
+            zos.putNextEntry(new ZipEntry(name));
+            zos.write(content.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
+
+        private static String sheet(List<String> headers, List<List<String>> rows) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+            sb.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+            sb.append("<cols>");
+            for (int c = 0; c < headers.size(); c++) {
+                // Column C is the description (test case body); give it extra width.
+                double width = c == 2 ? 70 : 22;
+                sb.append("<col min=\"").append(c + 1).append("\" max=\"").append(c + 1)
+                        .append("\" width=\"").append(width).append("\" customWidth=\"1\"/>");
+            }
+            sb.append("</cols>");
+            sb.append("<sheetData>");
+            sb.append("<row r=\"1\">");
+            for (int c = 0; c < headers.size(); c++) sb.append(cell(col(c), 1, 1, headers.get(c)));
+            sb.append("</row>");
+            for (int r = 0; r < rows.size(); r++) {
+                int rowNum = r + 2;
+                sb.append("<row r=\"").append(rowNum).append("\">");
+                List<String> row = rows.get(r);
+                for (int c = 0; c < row.size(); c++) sb.append(cell(col(c), rowNum, 2, row.get(c)));
+                sb.append("</row>");
+            }
+            sb.append("</sheetData>");
+            sb.append("</worksheet>");
+            return sb.toString();
+        }
+
+        private static String cell(String colLetter, int row, int styleIdx, String value) {
+            return "<c r=\"" + colLetter + row + "\" t=\"inlineStr\" s=\"" + styleIdx
+                    + "\"><is><t xml:space=\"preserve\">" + xmlEscape(value) + "</t></is></c>";
+        }
+
+        /** Zero-based column index to Excel-style letters (0 = A, 25 = Z, 26 = AA, ...). */
+        private static String col(int n) {
+            StringBuilder sb = new StringBuilder();
+            int x = n + 1;
+            while (x > 0) {
+                int rem = (x - 1) % 26;
+                sb.insert(0, (char) ('A' + rem));
+                x = (x - 1) / 26;
+            }
+            return sb.toString();
+        }
+
+        private static String xmlEscape(String s) {
+            if (s == null) return "";
+            StringBuilder sb = new StringBuilder(s.length());
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                switch (c) {
+                    case '<' -> sb.append("&lt;");
+                    case '>' -> sb.append("&gt;");
+                    case '&' -> sb.append("&amp;");
+                    case '"' -> sb.append("&quot;");
+                    case '\'' -> sb.append("&apos;");
+                    default -> {
+                        // Office Open XML forbids most control chars; keep tab, LF, CR, everything from 0x20.
+                        if (c == '\t' || c == '\n' || c == '\r' || c >= 0x20) sb.append(c);
+                    }
+                }
+            }
+            return sb.toString();
+        }
+
+        private static final String CONTENT_TYPES =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                        + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+                        + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+                        + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+                        + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                        + "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>"
+                        + "</Types>";
+
+        private static final String ROOT_RELS =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                        + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+                        + "</Relationships>";
+
+        private static final String WORKBOOK =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                        + "<sheets><sheet name=\"Test Cases\" sheetId=\"1\" r:id=\"rId1\"/></sheets>"
+                        + "</workbook>";
+
+        private static final String WORKBOOK_RELS =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                        + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+                        + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
+                        + "</Relationships>";
+
+        private static final String STYLES =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                        + "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+                        + "<fonts count=\"2\">"
+                        + "<font><sz val=\"11\"/><name val=\"Calibri\"/></font>"
+                        + "<font><b/><sz val=\"11\"/><name val=\"Calibri\"/></font>"
+                        + "</fonts>"
+                        + "<fills count=\"2\">"
+                        + "<fill><patternFill patternType=\"none\"/></fill>"
+                        + "<fill><patternFill patternType=\"gray125\"/></fill>"
+                        + "</fills>"
+                        + "<borders count=\"1\"><border/></borders>"
+                        + "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>"
+                        + "<cellXfs count=\"3\">"
+                        + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>"
+                        + "<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>"
+                        + "<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyAlignment=\"1\">"
+                        + "<alignment wrapText=\"1\" vertical=\"top\"/>"
+                        + "</xf>"
+                        + "</cellXfs>"
+                        + "</styleSheet>";
     }
 }

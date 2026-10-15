@@ -1,4 +1,4 @@
-# Load credentials and run the Test Case Agent helper.
+# Load credentials and run the Test Case Agent helper (Python).
 # Usage: .\run-test-case-agent.ps1 <command> [args]   (run from anywhere)
 
 param(
@@ -26,10 +26,6 @@ foreach ($envFile in @((Join-Path $scriptDir ".env"),
     }
 }
 
-# Every JVM on this machine needs TEMP/TMP off %LOCALAPPDATA%\Temp (HttpClient loopback failure otherwise).
-if (-not (Test-Path 'D:\build-temp')) { New-Item -ItemType Directory -Path 'D:\build-temp' | Out-Null }
-$env:TEMP = 'D:\build-temp'; $env:TMP = 'D:\build-temp'
-
 $config = Join-Path $skillDir "test-case-agent.config.json"
-& java (Join-Path $scriptDir "TestCaseAgent.java") @HelperArgs --config $config
+& python (Join-Path $scriptDir "test_case_agent.py") @HelperArgs --config $config
 exit $LASTEXITCODE

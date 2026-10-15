@@ -29,7 +29,7 @@ Arguments:
 4. **No PII in chat or in stories.** The helper reports people by accountId only. Don't
    copy e-mails, phone numbers or personal names from the epic into story text; refer to
    roles ("finance approver", "plant manager") instead.
-5. Write all helper code / extensions in **Java** (org rule). Don't add Python or Node.
+5. Write all helper code / extensions in **Python** (org rule). Don't add Java or Node.
 
 ## Setup (once)
 

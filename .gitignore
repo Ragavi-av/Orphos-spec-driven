@@ -85,6 +85,8 @@ mobile/android/local.properties
 # Real per-environment skill configs - commit only the .example files
 .claude/skills/*/*.config.json
 !.claude/skills/*/*.config.example.json
+# Local user/editor settings should stay machine-specific and never be committed
+.claude/settings.json
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 drivers/mysql-connector-j-*/
