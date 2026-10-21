@@ -1,0 +1,28 @@
+{
+  "projectId": "",
+  "storyItemType": "Story",
+  "approvedStatuses": ["Approved"],
+
+  "authorizedApprovers": {
+    "userIds": []
+  },
+
+  "forbidSelfApproval": true,
+  "rejectIfEditedAfterApproval": true,
+  "protectedFields": ["name", "description"],
+
+  "defaultTags": ["epic-reader"],
+  "commentOnEpic": true,
+  "maxStoriesPerRun": 25,
+  "scanLimit": 50,
+
+  "api": {
+    "_note": "Paths are relative to https://sprintsapi.<ZOHO_DOMAIN>/zsapi. VERIFY each against the Zoho Sprints API docs for your account before first use.",
+    "epicList": "/team/{team}/projects/{project}/epic/",
+    "epicGet": "/team/{team}/projects/{project}/epic/{epic}/",
+    "epicHistory": "/team/{team}/projects/{project}/epic/{epic}/timeline/",
+    "epicItems": "/team/{team}/projects/{project}/epic/{epic}/item/",
+    "itemCreate": "/team/{team}/projects/{project}/item/",
+    "itemComment": "/team/{team}/projects/{project}/epic/{epic}/comment/"
+  }
+}
